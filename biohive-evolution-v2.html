@@ -1,0 +1,1501 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BioHive Evolution v2 - 生物母巢进化</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            overflow: hidden;
+            font-family: 'Courier New', monospace;
+            background: #000;
+        }
+
+        #gameCanvas {
+            display: block;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        /* UI覆盖层 */
+        #ui-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 100;
+        }
+
+        /* 左上角资源面板 */
+        #resource-panel {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(0, 20, 0, 0.9);
+            border: 2px solid #0f0;
+            padding: 15px;
+            border-radius: 5px;
+            color: #0f0;
+            min-width: 220px;
+            box-shadow: 0 0 20px rgba(0, 255, 0, 0.3);
+        }
+
+        #resource-panel h3 {
+            margin-bottom: 10px;
+            font-size: 18px;
+            text-shadow: 0 0 10px #0f0;
+        }
+
+        .resource-item {
+            margin: 5px 0;
+            font-size: 14px;
+        }
+
+        .resource-value {
+            color: #ff0;
+            font-weight: bold;
+            float: right;
+        }
+
+        /* 右上角器官面板 */
+        #organ-panel {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(0, 20, 0, 0.9);
+            border: 2px solid #0f0;
+            padding: 15px;
+            border-radius: 5px;
+            color: #0f0;
+            min-width: 280px;
+            max-height: 400px;
+            overflow-y: auto;
+            box-shadow: 0 0 20px rgba(0, 255, 0, 0.3);
+        }
+
+        #organ-panel h3 {
+            margin-bottom: 10px;
+            font-size: 18px;
+            text-shadow: 0 0 10px #0f0;
+        }
+
+        .organ-item {
+            margin: 8px 0;
+            padding: 8px;
+            background: rgba(0, 50, 0, 0.5);
+            border: 1px solid #0a0;
+            border-radius: 3px;
+            cursor: pointer;
+            pointer-events: auto;
+            transition: all 0.3s;
+        }
+
+        .organ-item:hover {
+            background: rgba(0, 100, 0, 0.7);
+            border-color: #0f0;
+            transform: translateX(-5px);
+        }
+
+        .organ-item.unlocked {
+            background: rgba(0, 150, 0, 0.6);
+            border-color: #0f0;
+            color: #fff;
+        }
+
+        .organ-item.locked {
+            opacity: 0.6;
+        }
+
+        .organ-cost {
+            color: #ff0;
+            font-size: 12px;
+        }
+
+        /* 底部单位控制面板 */
+        #unit-panel {
+            position: absolute;
+            bottom: 80px;
+            left: 20px;
+            background: rgba(0, 20, 0, 0.9);
+            border: 2px solid #0f0;
+            padding: 15px;
+            border-radius: 5px;
+            color: #0f0;
+            min-width: 300px;
+            box-shadow: 0 0 20px rgba(0, 255, 0, 0.3);
+        }
+
+        #unit-panel h3 {
+            margin-bottom: 10px;
+            font-size: 16px;
+            text-shadow: 0 0 10px #0f0;
+        }
+
+        .unit-btn {
+            margin: 5px 0;
+            padding: 8px;
+            background: rgba(0, 50, 0, 0.7);
+            border: 1px solid #0a0;
+            border-radius: 3px;
+            color: #0f0;
+            cursor: pointer;
+            pointer-events: auto;
+            transition: all 0.3s;
+            font-family: 'Courier New', monospace;
+        }
+
+        .unit-btn:hover {
+            background: rgba(0, 100, 0, 0.9);
+            border-color: #0f0;
+        }
+
+        .unit-btn:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+
+        /* 底部操作提示 */
+        #controls-hint {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.8);
+            padding: 10px 20px;
+            border-radius: 5px;
+            color: #0f0;
+            font-size: 14px;
+            text-align: center;
+        }
+
+        /* 准星 */
+        #crosshair {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 30px;
+            height: 30px;
+            border: 2px solid rgba(0, 255, 0, 0.8);
+            border-radius: 50%;
+        }
+
+        #crosshair::before,
+        #crosshair::after {
+            content: '';
+            position: absolute;
+            background: rgba(0, 255, 0, 0.8);
+        }
+
+        #crosshair::before {
+            width: 2px;
+            height: 10px;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        #crosshair::after {
+            width: 10px;
+            height: 2px;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        /* 消息提示 */
+        #message-display {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -100px);
+            color: #0f0;
+            font-size: 20px;
+            font-weight: bold;
+            text-shadow: 0 0 10px #0f0;
+            opacity: 0;
+            transition: opacity 0.3s;
+            text-align: center;
+        }
+
+        #message-display.show {
+            opacity: 1;
+        }
+
+        /* 战斗信息 */
+        #combat-info {
+            position: absolute;
+            top: 50%;
+            right: 320px;
+            transform: translateY(-50%);
+            background: rgba(0, 20, 0, 0.9);
+            border: 2px solid #f00;
+            padding: 15px;
+            border-radius: 5px;
+            color: #f00;
+            min-width: 200px;
+            display: none;
+        }
+
+        #combat-info.active {
+            display: block;
+        }
+
+        /* 开始界面 */
+        #start-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #001100 0%, #000000 100%);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        #start-screen h1 {
+            color: #0f0;
+            font-size: 48px;
+            margin-bottom: 20px;
+            text-shadow: 0 0 20px #0f0;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        #start-screen p {
+            color: #0a0;
+            font-size: 16px;
+            margin: 10px;
+            max-width: 600px;
+            text-align: center;
+            line-height: 1.6;
+        }
+
+        #start-button {
+            margin-top: 30px;
+            padding: 15px 40px;
+            font-size: 24px;
+            background: #0f0;
+            color: #000;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+
+        #start-button:hover {
+            background: #0a0;
+            box-shadow: 0 0 20px #0f0;
+        }
+
+        /* 游戏结束 */
+        #gameover-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 1100;
+        }
+        #gameover-screen h1 {
+            color: #ff0000;
+            font-size: 56px;
+            margin-bottom: 20px;
+            text-shadow: 0 0 40px rgba(255,0,0,0.8);
+        }
+        #gameover-screen p {
+            color: #ff4444;
+            font-size: 20px;
+            margin: 10px;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+    </style>
+</head>
+<body>
+    <!-- 开始界面 -->
+    <div id="start-screen">
+        <h1>🧬 BioHive Evolution v2</h1>
+        <p>第三人称升级版 - 建立你的生物帝国!</p>
+        <p>
+            🎮 WASD移动 | 鼠标视角 | E吞噬/攻击 | 空格生成单位<br>
+            👁️ Q键切换上帝视角 | 🖱️ 点击地面放置兵种 | 🔍 滚轮缩放<br>
+            🛡️ 开局30秒安全保护期
+        </p>
+        <button id="start-button">开始进化</button>
+    </div>
+
+    <!-- 游戏画布 -->
+    <canvas id="gameCanvas"></canvas>
+
+    <!-- UI覆盖层 -->
+    <div id="ui-overlay" class="hidden">
+        <div id="resource-panel">
+            <h3>🧬 资源</h3>
+            <div class="resource-item">
+                生物质: <span class="resource-value" id="biomass-display">0</span>
+            </div>
+            <div class="resource-item">
+                已吞噬: <span class="resource-value" id="consumed-display">0</span>
+            </div>
+            <div class="resource-item">
+                单位数量: <span class="resource-value" id="units-display">0</span>
+            </div>
+            <div class="resource-item" style="color:#ff44ff;">
+                💎 水晶堡垒: <span class="resource-value" id="crystal-display" style="color:#ff44ff;">500/500</span>
+            </div>
+        </div>
+
+        <div id="organ-panel">
+            <h3>🔬 器官进化</h3>
+            <div id="organ-list"></div>
+        </div>
+
+        <div id="unit-panel">
+            <h3>👥 兵种生成 (空格键)</h3>
+            <button class="unit-btn" data-unit="drone" onclick="spawnUnit('drone')">
+                工蜂 (10生物质) - 采集资源
+            </button>
+            <button class="unit-btn" data-unit="warrior" onclick="spawnUnit('warrior')">
+                战士 (25生物质) - 近战攻击
+            </button>
+            <button class="unit-btn" data-unit="hydralisk" onclick="spawnUnit('hydralisk')">
+                喷射兽 (50生物质) - 远程攻击
+            </button>
+        </div>
+
+        <div id="crosshair"></div>
+        <div id="message-display"></div>
+        <div id="combat-info">
+            <h4 style="margin-bottom: 10px;">⚔️ 战斗状态</h4>
+            <div id="enemy-count">敌人: 0</div>
+        </div>
+
+        <div id="controls-hint">
+            WASD: 移动 | 鼠标: 视角 | E: 吞噬/攻击 | 空格: 生成单位 | 1-5: 进化器官
+        </div>
+    </div>
+
+    <!-- Three.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+    <!-- 游戏结束 -->
+    <div id="gameover-screen" class="hidden">
+        <h1>💀 水晶被摧毁</h1>
+        <p>母巢堡垒已沦陷，生物进化失败</p>
+        <p style="font-size:16px;color:#ff8844;">击杀数: <span id="final-kills">0</span> | 生物质: <span id="final-biomass">0</span></p>
+        <button id="restart-button" style="margin-top:30px;padding:15px 40px;font-size:22px;background:#ff4444;color:#fff;border:none;border-radius:5px;cursor:pointer;font-family:'Courier New';">重新开始</button>
+    </div>
+
+    <script>
+        // ==================== 游戏配置 ====================
+        const CONFIG = {
+            moveSpeed: 0.15,
+            lookSensitivity: 0.002,
+            consumeRange: 12,
+            consumeCooldown: 600,
+            crystalMaxHP: 500,
+            organCosts: [10, 25, 50, 100, 200],
+            organNames: [
+                '感知触须 (视野+)',
+                '消化腺体 (生物质+)',
+                '运动肌纤维 (速度+)',
+                '外骨骼装甲 (防御+)',
+                '神经中枢 (控制+)'
+            ],
+            unitCosts: {
+                drone: 10,
+                warrior: 25,
+                hydralisk: 50
+            },
+            maxUnits: 999
+        };
+
+        // ==================== 游戏状态 ====================
+        const gameState = {
+            biomass: 0,
+            consumedCount: 0,
+            unlockedOrgans: 0,
+            lastConsumeTime: 0,
+            isGameStarted: false,
+            isGameOver: false,
+            units: [],
+            enemies: [],
+            selectedUnitType: 'drone',
+            safetyTimer: 30,
+            crystalHP: CONFIG.crystalMaxHP,
+            crystalMaxHP: CONFIG.crystalMaxHP,
+            cameraMode: 'third'
+        };
+
+        // ==================== Three.js 初始化 ====================
+        const canvas = document.getElementById('gameCanvas');
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x87ceeb);
+        scene.fog = new THREE.Fog(0x87ceeb, 80, 200);
+
+        const camera = new THREE.PerspectiveCamera(
+            75,
+            window.innerWidth / window.innerHeight,
+            0.1,
+            1000
+        );
+
+        const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true;
+
+        // ==================== 光照系统 ====================
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
+        scene.add(ambientLight);
+
+        const directionalLight = new THREE.DirectionalLight(0xffffcc, 1.3);
+        directionalLight.position.set(80, 120, 80);
+        directionalLight.castShadow = true;
+        directionalLight.shadow.camera.left = -100;
+        directionalLight.shadow.camera.right = 100;
+        directionalLight.shadow.camera.top = 100;
+        directionalLight.shadow.camera.bottom = -100;
+        scene.add(directionalLight);
+
+        // ==================== 玩家角色(第三人称) ====================
+        let player;
+        let playerMesh;
+
+        function createPlayer() {
+            const group = new THREE.Group();
+
+            // 身体 - 更复杂的几何体组合
+            const bodyGeometry = new THREE.CylinderGeometry(0.4, 0.6, 1.5, 8);
+            const bodyMaterial = new THREE.MeshStandardMaterial({
+                color: 0x00ff00,
+                roughness: 0.7,
+                metalness: 0.3
+            });
+            const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+            body.position.y = 0.75;
+            body.castShadow = true;
+            group.add(body);
+
+            // 头部
+            const headGeometry = new THREE.SphereGeometry(0.5, 8, 6);
+            const headMaterial = new THREE.MeshStandardMaterial({
+                color: 0x00cc00,
+                roughness: 0.6
+            });
+            const head = new THREE.Mesh(headGeometry, headMaterial);
+            head.position.y = 1.8;
+            head.castShadow = true;
+            group.add(head);
+
+            // 眼睛
+            const eyeGeometry = new THREE.SphereGeometry(0.15, 6, 4);
+            const eyeMaterial = new THREE.MeshBasicMaterial({ color: 0xffff00 });
+            const leftEye = new THREE.Mesh(eyeGeometry, eyeMaterial);
+            leftEye.position.set(-0.2, 1.9, 0.35);
+            group.add(leftEye);
+
+            const rightEye = new THREE.Mesh(eyeGeometry, eyeMaterial);
+            rightEye.position.set(0.2, 1.9, 0.35);
+            group.add(rightEye);
+
+            // 触手/腿
+            for (let i = 0; i < 6; i++) {
+                const legGeometry = new THREE.CylinderGeometry(0.1, 0.08, 0.8, 6);
+                const legMaterial = new THREE.MeshStandardMaterial({ color: 0x00aa00 });
+                const leg = new THREE.Mesh(legGeometry, legMaterial);
+                const angle = (i / 6) * Math.PI * 2;
+                leg.position.set(Math.cos(angle) * 0.4, 0.4, Math.sin(angle) * 0.4);
+                leg.rotation.x = Math.PI / 4;
+                leg.castShadow = true;
+                group.add(leg);
+            }
+
+            group.position.set(0, 0, 0);
+            scene.add(group);
+
+            return group;
+        }
+
+        player = createPlayer();
+
+        // ==================== 母巢水晶堡垒 ====================
+        let crystal, crystalCore, crystalRing;
+
+        function createCrystal() {
+            const group = new THREE.Group();
+
+            // 底座 - 要塞平台
+            const baseGeo = new THREE.CylinderGeometry(4, 5, 1.5, 16);
+            const baseMat = new THREE.MeshStandardMaterial({
+                color: 0x334455,
+                roughness: 0.4,
+                metalness: 0.6
+            });
+            const base = new THREE.Mesh(baseGeo, baseMat);
+            base.position.y = 0.75;
+            base.castShadow = true;
+            base.receiveShadow = true;
+            group.add(base);
+
+            // 水晶主体
+            const crystalGeo = new THREE.OctahedronGeometry(2.5, 1);
+            const crystalMat = new THREE.MeshStandardMaterial({
+                color: 0x9944ff,
+                roughness: 0.2,
+                metalness: 0.8,
+                emissive: 0x331155,
+                emissiveIntensity: 0.6
+            });
+            const crystalMesh = new THREE.Mesh(crystalGeo, crystalMat);
+            crystalMesh.position.y = 3;
+            crystalMesh.castShadow = true;
+            group.add(crystalMesh);
+
+            // 核心发光球
+            const coreGeo = new THREE.SphereGeometry(0.8, 16, 12);
+            const coreMat = new THREE.MeshBasicMaterial({ color: 0xff44ff });
+            const core = new THREE.Mesh(coreGeo, coreMat);
+            core.position.y = 3;
+            group.add(core);
+
+            // 旋转光环
+            const ringGeo = new THREE.TorusGeometry(3.5, 0.2, 8, 32);
+            const ringMat = new THREE.MeshStandardMaterial({
+                color: 0xcc44ff,
+                emissive: 0x440066,
+                emissiveIntensity: 0.4,
+                roughness: 0.3
+            });
+            const ring = new THREE.Mesh(ringGeo, ringMat);
+            ring.rotation.x = Math.PI / 2;
+            ring.position.y = 3;
+            group.add(ring);
+
+            // 角柱 * 4
+            for (let i = 0; i < 4; i++) {
+                const angle = (i / 4) * Math.PI * 2;
+                const pillarGeo = new THREE.CylinderGeometry(0.3, 0.4, 4, 8);
+                const pillarMat = new THREE.MeshStandardMaterial({
+                    color: 0x665588,
+                    roughness: 0.3,
+                    emissive: 0x110022
+                });
+                const pillar = new THREE.Mesh(pillarGeo, pillarMat);
+                pillar.position.set(Math.cos(angle) * 3.5, 2, Math.sin(angle) * 3.5);
+                pillar.castShadow = true;
+                group.add(pillar);
+            }
+
+            // 顶部光柱
+            const beamGeo = new THREE.CylinderGeometry(0.3, 0.3, 8, 8);
+            const beamMat = new THREE.MeshBasicMaterial({
+                color: 0xff44ff,
+                transparent: true,
+                opacity: 0.3
+            });
+            const beam = new THREE.Mesh(beamGeo, beamMat);
+            beam.position.y = 8;
+            group.add(beam);
+
+            group.position.set(0, 0, 0);
+            scene.add(group);
+
+            return { group, core, ring };
+        }
+
+        const crystalData = createCrystal();
+        crystal = crystalData.group;
+        crystalCore = crystalData.core;
+        crystalRing = crystalData.ring;
+
+        // 相机初始位置(第三人称)
+        camera.position.set(0, 5, 10);
+
+        // ==================== 创建森林环境 ====================
+        function createForest() {
+            // 地面
+            const groundGeometry = new THREE.PlaneGeometry(200, 200);
+            const groundMaterial = new THREE.MeshStandardMaterial({
+                color: 0x4a8a3a,
+                roughness: 0.9
+            });
+            const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+            ground.rotation.x = -Math.PI / 2;
+            ground.receiveShadow = true;
+            scene.add(ground);
+
+            // 树木
+            for (let i = 0; i < 120; i++) {
+                const x = (Math.random() - 0.5) * 180;
+                const z = (Math.random() - 0.5) * 180;
+
+                // 树干
+                const trunkGeometry = new THREE.CylinderGeometry(0.3, 0.5, 3, 8);
+                const trunkMaterial = new THREE.MeshStandardMaterial({ color: 0x4a2f1b });
+                const trunk = new THREE.Mesh(trunkGeometry, trunkMaterial);
+                trunk.position.set(x, 1.5, z);
+                trunk.castShadow = true;
+                scene.add(trunk);
+
+                // 树冠
+                const leavesGeometry = new THREE.SphereGeometry(2, 8, 6);
+                const leavesMaterial = new THREE.MeshStandardMaterial({ color: 0x2d5a2d });
+                const leaves = new THREE.Mesh(leavesGeometry, leavesMaterial);
+                leaves.position.set(x, 4, z);
+                leaves.castShadow = true;
+                scene.add(leaves);
+            }
+
+            // 岩石
+            for (let i = 0; i < 40; i++) {
+                const x = (Math.random() - 0.5) * 180;
+                const z = (Math.random() - 0.5) * 180;
+
+                const rockGeometry = new THREE.DodecahedronGeometry(Math.random() * 1 + 0.5);
+                const rockMaterial = new THREE.MeshStandardMaterial({ color: 0x666666 });
+                const rock = new THREE.Mesh(rockGeometry, rockMaterial);
+                rock.position.set(x, 0.5, z);
+                rock.castShadow = true;
+                scene.add(rock);
+            }
+        }
+
+        createForest();
+
+        // ==================== 可吞噬物体 ====================
+        const consumables = [];
+
+        function createConsumable(type = 'normal') {
+            let geometry, material, biomass;
+
+            switch(type) {
+                case 'small':
+                    geometry = new THREE.SphereGeometry(0.5, 8, 6);
+                    material = new THREE.MeshStandardMaterial({
+                        color: 0x00ff00,
+                        emissive: 0x003300
+                    });
+                    biomass = 5;
+                    break;
+                case 'large':
+                    geometry = new THREE.BoxGeometry(2, 2, 2);
+                    material = new THREE.MeshStandardMaterial({
+                        color: 0xff0000,
+                        emissive: 0x330000
+                    });
+                    biomass = 25;
+                    break;
+                default:
+                    geometry = new THREE.SphereGeometry(1, 8, 6);
+                    material = new THREE.MeshStandardMaterial({
+                        color: 0xffff00,
+                        emissive: 0x333300
+                    });
+                    biomass = 10;
+            }
+
+            const mesh = new THREE.Mesh(geometry, material);
+            const x = (Math.random() - 0.5) * 80;
+            const z = (Math.random() - 0.5) * 80;
+            mesh.position.set(x, 1, z);
+            mesh.castShadow = true;
+
+            mesh.userData = { type, biomass };
+            scene.add(mesh);
+            consumables.push(mesh);
+
+            return mesh;
+        }
+
+        // 初始生成
+        for (let i = 0; i < 30; i++) createConsumable('normal');
+        for (let i = 0; i < 15; i++) createConsumable('small');
+        for (let i = 0; i < 8; i++) createConsumable('large');
+
+        // ==================== 敌对物种 ====================
+        const enemies = [];
+
+        function createEnemy(type = 'basic') {
+            const group = new THREE.Group();
+
+            let health, damage, speed, color;
+
+            switch(type) {
+                case 'tank':
+                    health = 450;
+                    damage = 12;
+                    speed = 0.05;
+                    color = 0x880000;
+                    break;
+                case 'fast':
+                    health = 150;
+                    damage = 6;
+                    speed = 0.12;
+                    color = 0xff4400;
+                    break;
+                default:
+                    health = 300;
+                    damage = 8;
+                    speed = 0.08;
+                    color = 0xaa0000;
+            }
+
+            // 敌人身体
+            const bodyGeometry = new THREE.ConeGeometry(0.6, 1.5, 6);
+            const bodyMaterial = new THREE.MeshStandardMaterial({
+                color: color,
+                roughness: 0.8
+            });
+            const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+            body.position.y = 0.75;
+            body.castShadow = true;
+            group.add(body);
+
+            // 尖刺
+            for (let i = 0; i < 4; i++) {
+                const spikeGeometry = new THREE.ConeGeometry(0.15, 0.6, 4);
+                const spikeMaterial = new THREE.MeshStandardMaterial({ color: 0xff0000 });
+                const spike = new THREE.Mesh(spikeGeometry, spikeMaterial);
+                const angle = (i / 4) * Math.PI * 2;
+                spike.position.set(Math.cos(angle) * 0.4, 1, Math.sin(angle) * 0.4);
+                spike.rotation.x = Math.PI / 3;
+                group.add(spike);
+            }
+
+            const x = (Math.random() - 0.5) * 100;
+            const z = (Math.random() - 0.5) * 100;
+            group.position.set(x, 0, z);
+
+            group.userData = {
+                type,
+                health,
+                maxHealth: health,
+                damage,
+                speed,
+                lastAttack: 0
+            };
+
+            scene.add(group);
+            enemies.push(group);
+
+            return group;
+        }
+
+        // 安全期保护——开局无敌人，30秒后首批刷新
+        const safetyCountdown = document.createElement('div');
+        safetyCountdown.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);color:#ff0;font-size:36px;font-weight:bold;z-index:500;text-shadow:0 0 20px #ff0;pointer-events:none;display:none;';
+        document.body.appendChild(safetyCountdown);
+
+        // ==================== 友方单位系统 ====================
+        function spawnUnit(unitType) {
+            const cost = CONFIG.unitCosts[unitType];
+            if (gameState.biomass < cost) {
+                showMessage(`生物质不足! 需要 ${cost}`);
+                return;
+            }
+
+            gameState.biomass -= cost;   
+
+            const group = new THREE.Group();
+            let color, size;
+
+            switch(unitType) {
+                case 'drone':
+                    color = 0x00ff88;
+                    size = 0.4;
+                    break;
+                case 'warrior':
+                    color = 0x00cc00;
+                    size = 0.6;
+                    break;
+                case 'hydralisk':
+                    color = 0x00ff00;
+                    size = 0.8;
+                    break;
+            }
+
+            // 单位身体
+            const bodyGeometry = new THREE.SphereGeometry(size, 8, 6);
+            const bodyMaterial = new THREE.MeshStandardMaterial({ color });
+            const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+            body.position.y = size;
+            body.castShadow = true;
+            group.add(body);
+
+            // 在玩家附近生成
+            const angle = Math.random() * Math.PI * 2;
+            const distance = 3 + Math.random() * 2;
+            group.position.set(
+                player.position.x + Math.cos(angle) * distance,
+                0,
+                player.position.z + Math.sin(angle) * distance
+            );
+
+            group.userData = {
+                type: unitType,
+                health: unitType === 'warrior' ? 300 : unitType === 'hydralisk' ? 240 : 150,
+                maxHealth: unitType === 'warrior' ? 300 : unitType === 'hydralisk' ? 240 : 150,
+                damage: unitType === 'warrior' ? 12 : unitType === 'hydralisk' ? 16 : 5,
+                speed: 0.08,
+                lastAttack: 0
+            };
+
+            scene.add(group);
+            gameState.units.push(group);
+
+            showMessage(`生成 ${unitType}!`);
+            updateUI();
+        }
+
+        // ==================== 输入处理 ====================
+        const keys = {};
+        let mouseX = 0, mouseY = 0;
+        let pitch = 0, yaw = 0;
+
+        document.addEventListener('keydown', (e) => {
+            keys[e.code] = true;
+
+            if (e.key === 'e' || e.key === 'E') {
+                tryConsume();
+            }
+
+            if (e.code >= 'Digit1' && e.code <= 'Digit5') {
+                const organIndex = parseInt(e.code.slice(-1)) - 1;
+                evolveOrgan(organIndex);
+            }
+
+            if (e.code === 'KeyQ') {
+                toggleView();
+            }
+
+            if (e.code === 'Space') {
+                e.preventDefault();
+                if (gameState.cameraMode === 'god') {
+                    // In god mode, space places the selected unit
+                    placeUnitAtCursor();
+                } else {
+                    // In third-person, cycle units
+                    const types = ['drone', 'warrior', 'hydralisk'];
+                    const currentIndex = types.indexOf(gameState.selectedUnitType);
+                    const nextIndex = (currentIndex + 1) % types.length;
+                    gameState.selectedUnitType = types[nextIndex];
+                    spawnUnit(types[nextIndex]);
+                }
+            }
+        });
+
+        document.addEventListener('keyup', (e) => {
+            keys[e.code] = false;
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (!gameState.isGameStarted || document.pointerLockElement !== canvas) return;
+
+            yaw -= e.movementX * CONFIG.lookSensitivity;
+            pitch -= e.movementY * CONFIG.lookSensitivity;
+            pitch = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, pitch));
+        });
+
+        canvas.addEventListener('click', function reqLock() {
+            if (gameState.isGameStarted && gameState.cameraMode !== 'god') {
+                canvas.requestPointerLock();
+            }
+        });
+
+        canvas.addEventListener('contextmenu', e => e.preventDefault());
+
+
+
+        // ==================== 移动系统 ====================
+        function updateMovement() {
+            const direction = new THREE.Vector3();
+
+            if (keys['KeyW']) direction.z -= 1;
+            if (keys['KeyS']) direction.z += 1;
+            if (keys['KeyA']) direction.x -= 1;
+            if (keys['KeyD']) direction.x += 1;
+
+            if (direction.length() > 0) {
+                direction.normalize();
+                direction.applyAxisAngle(new THREE.Vector3(0, 1, 0), yaw);
+
+                player.position.x += direction.x * CONFIG.moveSpeed;
+                player.position.z += direction.z * CONFIG.moveSpeed;
+
+                // 限制在地图范围内
+                player.position.x = Math.max(-95, Math.min(95, player.position.x));
+                player.position.z = Math.max(-95, Math.min(95, player.position.z));
+
+                // 旋转玩家朝向
+                player.rotation.y = yaw + Math.PI;
+            }
+
+            // 更新第三人称相机
+            const cameraOffset = new THREE.Vector3(0, 5, 10);
+            cameraOffset.applyAxisAngle(new THREE.Vector3(0, 1, 0), yaw);
+
+            camera.position.lerp(
+                new THREE.Vector3(
+                    player.position.x + cameraOffset.x,
+                    player.position.y + cameraOffset.y,
+                    player.position.z + cameraOffset.z
+                ),
+                0.1
+            );
+
+            camera.lookAt(player.position.x, player.position.y + 2, player.position.z);
+        }
+
+        // ==================== 吞噬/攻击系统 ====================
+        function tryConsume() {
+            const now = Date.now();
+            if (now - gameState.lastConsumeTime < CONFIG.consumeCooldown) return;
+
+            // Raycast from player toward camera look direction
+            const raycaster = new THREE.Raycaster();
+            const playerForward = new THREE.Vector3(0, 0, -1);
+            playerForward.applyAxisAngle(new THREE.Vector3(0, 1, 0), yaw);
+            raycaster.set(player.position.clone().add(new THREE.Vector3(0, 1, 0)), playerForward);
+            raycaster.far = CONFIG.consumeRange + 4;
+
+            // First check consumables
+            const intersects = raycaster.intersectObjects(consumables);
+            if (intersects.length > 0 && intersects[0].distance < CONFIG.consumeRange) {
+                consumeTarget(intersects[0].object);
+                gameState.lastConsumeTime = now;
+                return;
+            }
+
+            // Then check enemies (wider range)
+            const allEnemyMeshes = enemies.reduce((arr, g) => arr.concat(g.children.filter(c => c.isMesh)), []);
+            const enemyIntersects = raycaster.intersectObjects(enemies, true);
+            if (enemyIntersects.length > 0 && enemyIntersects[0].distance < CONFIG.consumeRange + 4) {
+                let target = enemyIntersects[0].object;
+                while (target.parent && !enemies.includes(target)) target = target.parent;
+                if (enemies.includes(target)) {
+                    attackEnemy(target);
+                    gameState.lastConsumeTime = now;
+                }
+            }
+        }
+
+        function consumeTarget(target) {
+            const biomassGain = target.userData.biomass;
+            gameState.biomass += biomassGain;
+            gameState.consumedCount++;
+
+            scene.remove(target);
+            consumables.splice(consumables.indexOf(target), 1);
+
+            setTimeout(() => {
+                const types = ['small', 'normal', 'large'];
+                const weights = [0.5, 0.35, 0.15];
+                const rand = Math.random();
+                let type = 'normal';
+
+                if (rand < weights[0]) type = 'small';
+                else if (rand < weights[0] + weights[1]) type = 'normal';
+                else type = 'large';
+
+                createConsumable(type);
+            }, 6000);
+
+            showMessage(`+${biomassGain} 生物质`);
+            updateUI();
+        }
+
+        function attackEnemy(enemy) {
+            const damage = 15;
+            enemy.userData.health -= damage;
+
+            showMessage(`攻击! 造成 ${damage} 伤害`);
+
+            if (enemy.userData.health <= 0) {
+                // 敌人死亡,获得生物质
+                const biomassGain = 30;
+                gameState.biomass += biomassGain;
+                gameState.consumedCount++;
+
+                scene.remove(enemy);
+                enemies.splice(enemies.indexOf(enemy), 1);
+
+                showMessage(`消灭敌人! +${biomassGain} 生物质`);
+
+                // 生成新敌人
+                setTimeout(() => {
+                    if (gameState.safetyTimer > 0) return;
+                    const types = ['basic', 'tank', 'fast'];
+                    const type = types[Math.floor(Math.random() * types.length)];
+                    createEnemy(type);
+                }, 15000);
+
+                updateUI();
+            }
+        }
+
+        // ==================== 敌人AI ====================
+        function updateEnemies(deltaTime) {
+            const now = Date.now();
+
+            enemies.forEach(enemy => {
+                const distToPlayer = enemy.position.distanceTo(player.position);
+                const distToCrystal = enemy.position.distanceTo(crystal.position);
+
+                // Determine target: player if close, otherwise crystal
+                let targetPos, targetType;
+                if (distToPlayer < 25) {
+                    targetPos = player.position;
+                    targetType = 'player';
+                } else {
+                    targetPos = crystal.position;
+                    targetType = 'crystal';
+                }
+
+                const dir = new THREE.Vector3()
+                    .subVectors(targetPos, enemy.position)
+                    .normalize();
+
+                enemy.position.x += dir.x * enemy.userData.speed;
+                enemy.position.z += dir.z * enemy.userData.speed;
+                enemy.lookAt(targetPos.x, enemy.position.y, targetPos.z);
+
+                // Attack
+                const dist = enemy.position.distanceTo(targetPos);
+                const attackRange = 4;
+                if (dist < attackRange && now - enemy.userData.lastAttack > 1000) {
+                    enemy.userData.lastAttack = now;
+                    if (targetType === 'player') {
+                        showMessage(`受到 ${enemy.userData.damage} 点伤害!`, '#ff4444');
+                    } else {
+                        // Damage crystal
+                        gameState.crystalHP -= enemy.userData.damage;
+                        showMessage(`水晶受到 ${enemy.userData.damage} 点伤害! (剩余 ${Math.max(0,gameState.crystalHP)})`, '#ff44ff');
+                        // Visual flash on crystal
+                        crystalCore.material.color.set(0xff0000);
+                        setTimeout(() => crystalCore.material.color.set(0xff44ff), 200);
+                        
+                        if (gameState.crystalHP <= 0) {
+                            gameState.crystalHP = 0;
+                            gameState.isGameOver = true;
+                            showMessage('水晶被摧毁！游戏结束！', '#ff0000');
+                            document.getElementById('final-kills').textContent = gameState.consumedCount;
+                            document.getElementById('final-biomass').textContent = Math.floor(gameState.biomass);
+                            document.getElementById('gameover-screen').classList.remove('hidden');
+                        }
+                    }
+                }
+            });
+        }
+
+        // ==================== 进化系统 ====================
+        function evolveOrgan(index) {
+            if (index < 0 || index >= CONFIG.organCosts.length) return;
+
+            const organBit = 1 << index;
+            if (gameState.unlockedOrgans & organBit) {
+                showMessage('该器官已解锁!');
+                return;
+            }
+
+            const cost = CONFIG.organCosts[index];
+            if (gameState.biomass < cost) {
+                showMessage(`生物质不足! 需要 ${cost}`);
+                return;
+            }
+
+            gameState.biomass -= cost;
+            gameState.unlockedOrgans |= organBit;
+
+            showMessage(`解锁: ${CONFIG.organNames[index]}`);
+            updateUI();
+        }
+
+        // ==================== UI系统 ====================
+        function initOrganPanel() {
+            const organList = document.getElementById('organ-list');
+            organList.innerHTML = '';
+
+            CONFIG.organNames.forEach((name, index) => {
+                const organItem = document.createElement('div');
+                organItem.className = 'organ-item locked';
+                organItem.dataset.index = index;
+
+                const isUnlocked = gameState.unlockedOrgans & (1 << index);
+                if (isUnlocked) {
+                    organItem.classList.add('unlocked');
+                    organItem.classList.remove('locked');
+                }
+
+                organItem.innerHTML = `
+                    <div>${index + 1}. ${name}</div>
+                    <div class="organ-cost">成本: ${CONFIG.organCosts[index]} 生物质</div>
+                `;
+
+                organItem.addEventListener('click', () => {
+                    evolveOrgan(index);
+                });
+
+                organList.appendChild(organItem);
+            });
+        }
+
+        function showMessage(text, color = '#0f0') {
+            const messageEl = document.getElementById('message-display');
+            messageEl.textContent = text;
+            messageEl.style.color = color;
+            messageEl.classList.add('show');
+
+            setTimeout(() => {
+                messageEl.classList.remove('show');
+            }, 1500);
+        }
+
+        function updateUI() {
+            document.getElementById('biomass-display').textContent = gameState.biomass.toFixed(1);
+            document.getElementById('consumed-display').textContent = gameState.consumedCount;
+            document.getElementById('units-display').textContent = gameState.units.length;
+            document.getElementById('crystal-display').textContent =
+                `${Math.max(0, Math.ceil(gameState.crystalHP))}/${gameState.crystalMaxHP}`;
+            document.getElementById('crystal-display').style.color =
+                gameState.crystalHP / gameState.crystalMaxHP > 0.5 ? '#ff44ff' : 
+                gameState.crystalHP / gameState.crystalMaxHP > 0.25 ? '#ffaa00' : '#ff0000';
+
+            // 更新器官面板
+            const organItems = document.querySelectorAll('.organ-item');
+            organItems.forEach((item, index) => {
+                const isUnlocked = gameState.unlockedOrgans & (1 << index);
+                if (isUnlocked) {
+                    item.classList.add('unlocked');
+                    item.classList.remove('locked');
+                }
+
+                const canAfford = gameState.biomass >= CONFIG.organCosts[index];
+                item.style.opacity = canAfford || isUnlocked ? '1' : '0.5';
+            });
+
+            // 更新单位按钮
+            document.querySelectorAll('.unit-btn').forEach(btn => {
+                const unitType = btn.dataset.unit;
+                const cost = CONFIG.unitCosts[unitType];
+                btn.disabled = gameState.biomass < cost;
+            });
+
+            // 更新战斗信息
+            document.getElementById('enemy-count').textContent = `敌人: ${enemies.length}`;
+        }
+
+        // ==================== 友方单位 AI ====================
+        function updateUnits(deltaTime) {
+            const now = Date.now();
+            gameState.units.forEach(unit => {
+                const type = unit.userData.type;
+                const spd = unit.userData.speed * deltaTime * 60;
+                unit.userData._idleTimer = (unit.userData._idleTimer || 0) + deltaTime;
+
+                if (type === 'drone') {
+                    // Collect nearest consumable
+                    let nearest = null, nearestDist = Infinity;
+                    consumables.forEach(c => {
+                        const d = unit.position.distanceTo(c.position);
+                        if (d < nearestDist) { nearestDist = d; nearest = c; }
+                    });
+                    if (nearest) {
+                        const dir = new THREE.Vector3().subVectors(nearest.position, unit.position).normalize();
+                        unit.position.x += dir.x * spd;
+                        unit.position.z += dir.z * spd;
+                        if (nearestDist < 2) {
+                            gameState.biomass += nearest.userData.biomass;
+                            gameState.consumedCount++;
+                            scene.remove(nearest);
+                            consumables.splice(consumables.indexOf(nearest), 1);
+                            setTimeout(() => { const t = ['small','small','normal','normal','large'][Math.floor(Math.random()*5)]; createConsumable(t); }, 6000);
+                        }
+                    }
+                } else {
+                    // Search for enemies (wide range: 50 units)
+                    let nearest = null, nearestDist = 50;
+                    enemies.forEach(e => {
+                        const d = unit.position.distanceTo(e.position);
+                        if (d < nearestDist) { nearestDist = d; nearest = e; }
+                    });
+                    if (nearest) {
+                        const dir = new THREE.Vector3().subVectors(nearest.position, unit.position).normalize();
+                        unit.position.x += dir.x * spd;
+                        unit.position.z += dir.z * spd;
+                        unit.lookAt(nearest.position.x, unit.position.y, nearest.position.z);
+                        if (nearestDist < 3 && now - (unit.userData.lastAttack || 0) > 800) {
+                            unit.userData.lastAttack = now;
+                            nearest.userData.health -= unit.userData.damage;
+                            if (nearest.userData.health <= 0) {
+                                gameState.biomass += 30;
+                                gameState.consumedCount++;
+                                scene.remove(nearest);
+                                enemies.splice(enemies.indexOf(nearest), 1);
+                                setTimeout(() => { if (gameState.safetyTimer > 0) return; const t = ['basic','tank','fast'][Math.floor(Math.random()*3)]; createEnemy(t); }, 15000);
+                            }
+                        }
+                    } else {
+                        // Patrol: wander randomly, biased toward crystal
+                        if (unit.userData._idleTimer > 2) { unit.userData._patrolAngle = Math.random() * Math.PI * 2; unit.userData._idleTimer = 0; }
+                        const angle = unit.userData._patrolAngle || Math.random() * Math.PI * 2;
+                        unit.position.x += Math.cos(angle) * spd * 0.4;
+                        unit.position.z += Math.sin(angle) * spd * 0.4;
+                        // Stay near crystal
+                        unit.position.x = Math.max(-95, Math.min(95, unit.position.x));
+                        unit.position.z = Math.max(-95, Math.min(95, unit.position.z));
+                    }
+                }
+                unit.position.y = 0;
+            });
+        }
+
+        // ==================== 上帝视角 + 双模式切换 ====================
+        let godCameraHeight = 60;
+        let godCursorPos = new THREE.Vector3();
+        let godCursorMesh = null;
+        (function(){const g=new THREE.RingGeometry(1.5,2,32);const m=new THREE.MeshBasicMaterial({color:0x00ff00,side:THREE.DoubleSide,transparent:true,opacity:0.6});godCursorMesh=new THREE.Mesh(g,m);godCursorMesh.rotation.x=-Math.PI/2;godCursorMesh.visible=false;scene.add(godCursorMesh);})();
+
+        function toggleView() {
+            if (gameState.cameraMode === 'third') {
+                gameState.cameraMode = 'god';
+                if (document.exitPointerLock) document.exitPointerLock();
+                godCursorMesh.visible = true;
+                showMessage('上帝视角 - 点击放置兵种 | 滚轮缩放 | Q 返回', '#ffd700');
+            } else {
+                gameState.cameraMode = 'third';
+                godCursorMesh.visible = false;
+                canvas.requestPointerLock();
+                showMessage('第三人称视角', '#00ff00');
+            }
+        }
+
+        function placeUnitAtCursor() {
+            const type = gameState.selectedUnitType;
+            const cost = CONFIG.unitCosts[type];
+            if (gameState.biomass < cost) { showMessage('生物质不足!'); return; }
+            gameState.biomass -= cost;
+            const g = new THREE.Group();
+            let c,s; if(type==='drone'){c=0x00ff88;s=0.4}else if(type==='warrior'){c=0x00cc00;s=0.6}else{c=0x00ff00;s=0.8}
+            const b = new THREE.Mesh(new THREE.SphereGeometry(s,8,6), new THREE.MeshStandardMaterial({color:c}));
+            b.position.y=s; b.castShadow=true; g.add(b);
+            g.position.copy(godCursorPos); g.position.y=0;
+            g.userData = {type:type, health:type==='warrior'?300:type==='hydralisk'?240:150, maxHealth:type==='warrior'?300:type==='hydralisk'?240:150, damage:type==='warrior'?12:type==='hydralisk'?16:5, speed:0.08, lastAttack:0};
+            scene.add(g); gameState.units.push(g);
+            showMessage(type+' 已放置!'); updateUI();
+        }
+
+        canvas.addEventListener('click', (e) => {
+            if (gameState.cameraMode !== 'god' || !gameState.isGameStarted) return;
+            if (e.button !== 0) return;
+            placeUnitAtCursor();
+        });
+
+        canvas.addEventListener('wheel', (e) => {
+            if (gameState.cameraMode !== 'god') return;
+            e.preventDefault();
+            godCameraHeight += e.deltaY * 0.05;
+            godCameraHeight = Math.max(10, Math.min(150, godCameraHeight));
+        });
+
+        // God view mouse tracking
+        canvas.addEventListener('mousemove', (e) => {
+            if (gameState.cameraMode !== 'god') return;
+            const rect = canvas.getBoundingClientRect();
+            const mouseX = (e.clientX - rect.left) / rect.width * 2 - 1;
+            const mouseY = -(e.clientY - rect.top) / rect.height * 2 + 1;
+            const raycaster = new THREE.Raycaster();
+            raycaster.setFromCamera(new THREE.Vector2(mouseX, mouseY), camera);
+            const groundPlane = new THREE.Plane(new THREE.Vector3(0,1,0), 0);
+            const intersect = new THREE.Vector3();
+            raycaster.ray.intersectPlane(groundPlane, intersect);
+            if (intersect && godCursorMesh) {
+                intersect.x = Math.max(-95, Math.min(95, intersect.x));
+                intersect.z = Math.max(-95, Math.min(95, intersect.z));
+                godCursorPos.copy(intersect);
+                godCursorMesh.position.copy(intersect);
+                godCursorMesh.position.y = 0.1;
+            }
+        });
+
+        // ==================== HP 血条绘制 ====================
+        function drawHPBars() {
+            const allEntities = [...gameState.units, ...enemies];
+            allEntities.forEach(ent => {
+                const data = ent.userData;
+                if (!data || data.health === undefined || data.maxHealth === undefined) return;
+                const pct = Math.max(0, data.health / data.maxHealth);
+                const pos = ent.position.clone();
+                pos.y += (data.health === data.maxHealth ? 2 : 2.5);
+
+                // Project to screen
+                const screenPos = pos.clone().project(camera);
+                const x = (screenPos.x * 0.5 + 0.5) * window.innerWidth;
+                const y = (-screenPos.y * 0.5 + 0.5) * window.innerHeight;
+
+                // Clamp to screen
+                if (screenPos.z > 1 || x < -200 || x > window.innerWidth + 200 || y < -200 || y > window.innerHeight + 200) return;
+
+                const barW = 40, barH = 5;
+                const sx = x - barW / 2;
+
+                // Background
+                ctx2d.fillStyle = 'rgba(0,0,0,0.6)';
+                ctx2d.fillRect(sx, y - 25, barW, barH);
+
+                // HP fill (green→yellow→red)
+                ctx2d.fillStyle = pct > 0.5 ? `hsl(${pct*120},80%,45%)` : '#ff4444';
+                ctx2d.fillRect(sx, y - 25, barW * pct, barH);
+
+                // Border
+                ctx2d.strokeStyle = 'rgba(255,255,255,0.2)';
+                ctx2d.lineWidth = 0.5;
+                ctx2d.strokeRect(sx, y - 25, barW, barH);
+            });
+        }
+
+        // 2D canvas context for HP bars
+        const ctx2dcanvas = document.createElement('canvas');
+        ctx2dcanvas.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:90;';
+        ctx2dcanvas.width = window.innerWidth;
+        ctx2dcanvas.height = window.innerHeight;
+        document.body.appendChild(ctx2dcanvas);
+        const ctx2d = ctx2dcanvas.getContext('2d');
+
+        window.addEventListener('resize', () => {
+            ctx2dcanvas.width = window.innerWidth;
+            ctx2dcanvas.height = window.innerHeight;
+        });
+
+        // Clear HP bar canvas each frame before drawing
+        const origDrawHPBars = drawHPBars;
+        drawHPBars = function() {
+            ctx2d.clearRect(0, 0, ctx2dcanvas.width, ctx2dcanvas.height);
+            origDrawHPBars();
+        };
+
+        // ==================== 游戏循环 ====================
+        let lastTime = 0;
+
+        function gameLoop(currentTime) {
+            requestAnimationFrame(gameLoop);
+
+            if (!gameState.isGameStarted) return;
+            if (gameState.isGameOver) {
+                renderer.render(scene, camera);
+                return;
+            }
+
+            const deltaTime = (currentTime - lastTime) / 1000;
+            lastTime = currentTime;
+
+            // Safety period
+            if (gameState.safetyTimer > 0) {
+                gameState.safetyTimer -= deltaTime;
+                if (gameState.safetyTimer <= 0) {
+                    gameState.safetyTimer = 0;
+                    safetyCountdown.style.display = 'none';
+                    showMessage('⚠️ 安全期结束！敌军来袭！', '#ff4444');
+                    // Spawn initial wave
+                    createEnemy('basic'); createEnemy('basic');
+                    createEnemy('tank');
+                    createEnemy('fast');
+                } else {
+                    const remaining = Math.ceil(gameState.safetyTimer);
+                    safetyCountdown.style.display = 'block';
+                    safetyCountdown.textContent = '安全期 ' + remaining + 's';
+                    if (remaining <= 5) safetyCountdown.style.color = '#f44';
+                }
+            }
+
+            if (gameState.cameraMode === 'god') {
+                camera.position.set(godCursorPos.x, godCameraHeight, godCursorPos.z + 0.01);
+                camera.lookAt(godCursorPos.x, 0, godCursorPos.z);
+                const panSpeed = 40 * deltaTime;
+                if (keys['KeyW']) { godCursorPos.z -= panSpeed; }
+                if (keys['KeyS']) { godCursorPos.z += panSpeed; }
+                if (keys['KeyA']) { godCursorPos.x -= panSpeed; }
+                if (keys['KeyD']) { godCursorPos.x += panSpeed; }
+                godCursorPos.x = Math.max(-95, Math.min(95, godCursorPos.x));
+                godCursorPos.z = Math.max(-95, Math.min(95, godCursorPos.z));
+                if (godCursorMesh) godCursorMesh.position.copy(godCursorPos);
+            } else {
+                updateMovement();
+            }
+
+            updateEnemies(deltaTime);
+            updateUnits(deltaTime);
+            
+            // Crystal animation
+            if (crystalCore) {
+                crystalCore.material.color.set(
+                    gameState.crystalHP / gameState.crystalMaxHP > 0.5 ? 0xff44ff :
+                    gameState.crystalHP / gameState.crystalMaxHP > 0.25 ? 0xff8844 : 0xff2222
+                );
+            }
+            if (crystalRing) {
+                crystalRing.rotation.z += 0.01;
+                crystalRing.scale.setScalar(
+                    1 + Math.sin(Date.now() / 500) * 0.05
+                );
+            }
+
+            updateUI();
+
+            // Draw HP bars above units and enemies
+            drawHPBars();
+
+            renderer.render(scene, camera);
+        }
+
+        // ==================== 窗口调整 ====================
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // ==================== 启动游戏 ====================
+        document.getElementById('start-button').addEventListener('click', startGame);
+        document.getElementById('restart-button').addEventListener('click', () => {
+            location.reload();
+        });
+
+        function startGame() {
+            document.getElementById('start-screen').classList.add('hidden');
+            document.getElementById('ui-overlay').classList.remove('hidden');
+
+            gameState.isGameStarted = true;
+            canvas.requestPointerLock();
+
+            initOrganPanel();
+            updateUI();
+            gameLoop(0);
+        }
+    </script>
+</body>
+</html>
