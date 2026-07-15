@@ -366,7 +366,19 @@
                 单位数量: <span class="resource-value" id="units-display">0</span>
             </div>
             <div class="resource-item" style="color:#ff44ff;">
-                💎 水晶堡垒: <span class="resource-value" id="crystal-display" style="color:#ff44ff;">500/500</span>
+                💎 水晶堡垒: <span class="resource-value" id="crystal-display" style="color:#ff44ff;">1200/1200</span>
+            </div>
+            <div id="god-select-panel" style="display:none;margin-top:10px;padding-top:8px;border-top:1px solid rgba(0,255,0,0.3);">
+                <div style="color:#ffd700;font-size:12px;margin-bottom:6px;">⚔ 放置兵种（点击按钮选择→点击地图放置）</div>
+                <button id="sel-drone" onclick="selectPlaceType('drone')" style="display:block;width:100%;margin:3px 0;padding:6px 10px;background:#003300;border:2px solid #0f0;color:#0f0;cursor:pointer;font-size:13px;border-radius:4px;text-align:left;">
+                    🟢 工蜂 (10) - 采集资源
+                </button>
+                <button id="sel-warrior" onclick="selectPlaceType('warrior')" style="display:block;width:100%;margin:3px 0;padding:6px 10px;background:#003300;border:1px solid #0a0;color:#0a0;cursor:pointer;font-size:13px;border-radius:4px;text-align:left;">
+                    🗡️ 战士 (25) - 近战
+                </button>
+                <button id="sel-hydralisk" onclick="selectPlaceType('hydralisk')" style="display:block;width:100%;margin:3px 0;padding:6px 10px;background:#003300;border:1px solid #0a0;color:#0a0;cursor:pointer;font-size:13px;border-radius:4px;text-align:left;">
+                    🏹 远程 (50) - 高输出
+                </button>
             </div>
         </div>
 
@@ -1067,10 +1079,6 @@
                     e.preventDefault();
                     placeUnitAtCursor();
                 }
-                // 1/2/3 keys: switch unit type in god mode
-                if (e.code === 'Digit1') { currentPlaceType = 'drone'; showMessage('选中: drone 收集者', '#ffd700'); if(godCursorMesh)godCursorMesh.material.color.set(0x00ff88); }
-                if (e.code === 'Digit2') { currentPlaceType = 'warrior'; showMessage('选中: warrior 战士', '#ffd700'); if(godCursorMesh)godCursorMesh.material.color.set(0x00cc00); }
-                if (e.code === 'Digit3') { currentPlaceType = 'hydralisk'; showMessage('选中: hydralisk 远程', '#ffd700'); if(godCursorMesh)godCursorMesh.material.color.set(0x00ff00); }
             }
         });
 
@@ -1380,6 +1388,22 @@
             });
         }
 
+        // ==================== 兵种选择（点击按钮） ====================
+        function selectPlaceType(type) {
+            currentPlaceType = type;
+            ['drone','warrior','hydralisk'].forEach(t => {
+                const btn = document.getElementById('sel-'+t);
+                if (btn) {
+                    btn.style.border = t===type ? '2px solid #ffd700' : '1px solid #0a0';
+                    btn.style.color = t===type ? '#ffd700' : '#0a0';
+                    btn.style.background = t===type ? '#114411' : '#003300';
+                }
+            });
+            const colors = {drone: 0x00ff88, warrior: 0x00cc00, hydralisk: 0x00ff00};
+            if (godCursorMesh) godCursorMesh.material.color.set(colors[type]);
+            showMessage('选中: '+type+' | 点击地图放置 | Shift框选批量', '#ffd700');
+        }
+
         // ==================== 上帝视角 + 双模式切换 ====================
         let currentPlaceType = 'drone';
         let godCameraHeight = 60;
@@ -1394,10 +1418,12 @@
                 if (document.exitPointerLock) document.exitPointerLock();
                 godCursorMesh.visible = true;
                 godCamPos.set(godCursorPos.x || 0, godCameraHeight, godCursorPos.z || 0);
-                showMessage('[1]drone [2]warrior [3]hydralisk | 点击放置 | WASD平移 | Q返回', '#ffd700');
+                document.getElementById('god-select-panel').style.display = 'block';
+                selectPlaceType(currentPlaceType); // highlight current
             } else {
                 gameState.cameraMode = 'third';
                 godCursorMesh.visible = false;
+                document.getElementById('god-select-panel').style.display = 'none';
                 canvas.requestPointerLock();
                 showMessage('第三人称视角', '#00ff00');
             }
