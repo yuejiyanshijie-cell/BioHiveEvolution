@@ -1,0 +1,154 @@
+// Widget Blueprint: WBP_RTS_HUD
+// Parent Class: UUserWidget
+// Description: RTS主界面，显示资源、小地图、单位选择、命令面板
+
+[Widget Tree]
+CanvasPanel (Root)
+├── ResourceDisplayPanel (Top-Left)
+│   ├── BiomassCounter
+│   │   ├── Icon_Image (BiomassIcon)
+│   │   └── Amount_Text (txtBiomassAmount)
+│   ├── GeneFragmentCounter
+│   │   ├── Icon_Image (GeneIcon)
+│   │   └── Amount_Text (txtGeneAmount)
+│   └── EnergyCounter
+│       ├── Icon_Image (EnergyIcon)
+│       └── Amount_Text (txtEnergyAmount)
+│
+├── MinimapWidget (Bottom-Left, 150x150px)
+│   ├── MinimapBackground
+│   ├── FriendlyUnitsLayer
+│   ├── EnemyUnitsLayer
+│   ├── ResourceNodesLayer
+│   └── CameraViewportIndicator
+│
+├── SelectionPanel (Bottom-Center)
+│   ├── SelectedUnitCards (HorizontalBox)
+│   │   └── [UnitCard_Widgets...] (Dynamic)
+│   └── SelectionCount_Text (txtSelectionCount)
+│
+├── CommandPanel (Bottom-Right)
+│   ├── MoveButton (btnMove)
+│   ├── AttackButton (btnAttack)
+│   ├── HarvestButton (btnHarvest)
+│   ├── ConsumeButton (btnConsume)
+│   ├── HoldButton (btnHold)
+│   └── RetreatButton (btnRetreat)
+│
+├── BuildMenuPanel (Hidden by default, toggled with B key)
+│   ├── ProductionTab
+│   │   ├── DroneButton (btnBuildDrone)
+│   │   │   ├── Icon
+│   │   │   ├── Name_Text
+│   │   │   └── Cost_Text
+│   │   ├── WarriorButton (btnBuildWarrior)
+│   │   └── HydraliskButton (btnBuildHydralisk)
+│   │
+│   └── BuildingsTab
+│       ├── HatcheryButton (btnBuildHatchery)
+│       ├── DefenseTowerButton (btnBuildTower)
+│       └── EvolutionChamberButton (btnBuildEvolution)
+│
+├── UnitInfoPanel (Right side, shown when unit selected)
+│   ├── UnitPortrait
+│   ├── UnitName_Text
+│   ├── HealthBar
+│   ├── AttackDamage_Text
+│   ├── MovementSpeed_Text
+│   └── EquippedSets_List
+│
+└── NotificationArea (Top-Center)
+    ├── UpgradeNotification
+    ├── ResourceNotification
+    └── AlertNotification
+
+[Widget Bindings]
+- txtBiomassAmount → ABioResourceManager::OnResourceChanged (Biomass)
+- txtGeneAmount → ABioResourceManager::OnResourceChanged (GeneFragment)
+- txtEnergyAmount → ABioResourceManager::OnResourceChanged (Energy)
+- btnBuildDrone → Spawn BP_Drone at nearest Hatchery
+- btnBuildWarrior → Spawn BP_Warrior at nearest Hatchery
+- btnBuildHatchery → Enable placement mode for BP_Hatchery
+
+[Styles]
+DefaultFont: Roboto Distance Field, Size 14
+TitleFont: Roboto Distance Field, Size 18, Bold
+ResourceTextColor: #FFFFFF
+BiomassColor: #00FF00
+GeneColor: #FF00FF
+EnergyColor: #00FFFF
+PanelBackgroundColor: RGBA(0, 0, 0, 180)
+ButtonHoverColor: RGBA(255, 255, 255, 50)
+
+---
+
+// Widget Blueprint: WBP_UnitCard
+// Parent Class: UUserWidget
+// Description: 单位选择卡片，显示在底部中央
+
+[Widget Tree]
+Border (Root, with selection highlight)
+├── UnitPortrait_Image
+├── HealthBar_ProgressBar
+├── UnitTypeIcon_Image
+└── SetBonusIndicator (visible if has set bonus)
+
+[Properties]
+- UnitReference: ABioUnit*
+- bIsSelected: bool
+
+[Events]
+- OnClicked → Select this unit
+- OnDoubleClicked → Center camera on unit + select all of same type
+
+---
+
+// Widget Blueprint: WBP_BuildButton
+// Parent Class: UUserWidget
+// Description: 建造按钮，显示在建造菜单中
+
+[Widget Tree]
+Button (Root)
+├── Background_Image
+├── BuildingIcon_Image
+├── BuildingName_Text
+├── CostText (e.g., "50 Biomass")
+├── HotkeyHint_Text (e.g., "[Q]")
+└── ProgressBar (construction progress, visible during build)
+
+[Properties]
+- BuildingClass: TSubclassOf<ABioBuilding>
+- UnitClass: TSubclassOf<ABioUnit>
+- BuildCost: TArray<FBioResourceCost>
+- BuildTime: float
+- Hotkey: FKey
+
+[States]
+- Normal: Full opacity, clickable
+- InsufficientResources: Grayed out, disabled
+- Building: Progress bar animating
+- Cooldown: Timer display
+
+---
+
+// Widget Blueprint: WBP_Minimap
+// Parent Class: UUserWidget
+// Description: 小地图，显示战场概览
+
+[Widget Tree]
+CanvasPanel (Root, 150x150px)
+├── Background_Image (terrain overview)
+├── FriendlyUnits_Canvas (green dots)
+├── EnemyUnits_Canvas (red dots)
+├── ResourceNodes_Canvas (yellow dots)
+├── Buildings_Canvas (blue squares)
+└── CameraViewport_Rectangle (white outline)
+
+[Update Rate]
+- Units/Enemies: Every 0.1 seconds
+- Resources: Every 1.0 second
+- Camera viewport: Every frame
+
+[Interactions]
+- Click → Move camera to clicked location
+- Drag → Pan camera

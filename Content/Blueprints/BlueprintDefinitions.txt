@@ -1,0 +1,184 @@
+// Blueprint Asset: BP_Drone (工蜂单位)
+// Parent Class: ABioUnit
+// Description: 基础采集单位，负责资源收集和建造
+
+[Blueprint]
+DisplayName="工蜂 (Drone)"
+Category="BioHive/Units"
+
+[Components]
+- SkeletalMeshComponent (Inherited from BioUnit)
+- WidgetComponent: SelectionIndicator
+- WidgetComponent: HealthBar
+
+[Default Values]
+UnitType = Drone
+UnitName = "工蜂"
+MaxHealth = 80.0f
+BaseAttackDamage = 5.0f
+AttackSpeed = 1.2f
+AttackRange = 100.0f
+HarvestRate = 15.0f
+HarvestRange = 120.0f
+ConsumeDuration = 2.0f
+BaseMovementSpeed = 550.0f
+
+ProductionCosts:
+  - ResourceType: Biomass, Amount: 50
+
+[Animation Blueprint]
+AnimClass = ABP_Drone_AnimBP
+
+[AI Controller]
+AIControllerClass = ABioAIController
+
+---
+
+// Blueprint Asset: BP_Warrior (战士单位)
+// Parent Class: ABioUnit
+// Description: 近战战斗单位，负责攻击和防御
+
+[Blueprint]
+DisplayName="战士 (Warrior)"
+Category="BioHive/Units"
+
+[Components]
+- SkeletalMeshComponent (Inherited from BioUnit)
+- WidgetComponent: SelectionIndicator
+- WidgetComponent: HealthBar
+
+[Default Values]
+UnitType = Warrior
+UnitName = "战士"
+MaxHealth = 150.0f
+BaseAttackDamage = 25.0f
+AttackSpeed = 0.8f
+AttackRange = 150.0f
+BaseMovementSpeed = 650.0f
+
+ProductionCosts:
+  - ResourceType: Biomass, Amount: 100
+
+[Animation Blueprint]
+AnimClass = ABP_Warrior_AnimBP
+
+---
+
+// Blueprint Asset: BP_Hydralisk (喷射兽单位)
+// Parent Class: ABioUnit
+// Description: 远程攻击单位，酸液喷射
+
+[Blueprint]
+DisplayName="喷射兽 (Hydralisk)"
+Category="BioHive/Units"
+
+[Components]
+- SkeletalMeshComponent (Inherited from BioUnit)
+- WidgetComponent: SelectionIndicator
+- WidgetComponent: HealthBar
+- NiagaraComponent: AcidProjectileFX
+
+[Default Values]
+UnitType = Hydralisk
+UnitName = "喷射兽"
+MaxHealth = 120.0f
+BaseAttackDamage = 30.0f
+AttackSpeed = 0.6f
+AttackRange = 400.0f
+BaseMovementSpeed = 500.0f
+
+ProductionCosts:
+  - ResourceType: Biomass, Amount: 150
+
+---
+
+// Blueprint Asset: BP_HiveCore (母巢核心建筑)
+// Parent Class: ABioBuilding
+// Description: 主基地，生产工蜂和升级科技
+
+[Blueprint]
+DisplayName="母巢核心 (Hive Core)"
+Category="BioHive/Buildings"
+
+[Components]
+- StaticMeshComponent (Inherited from BioBuilding)
+- WidgetComponent: HealthBarWidget
+- NiagaraComponent: ConstructionEffect
+- NiagaraComponent: ActiveEffect
+
+[Default Values]
+BuildingType = HiveCore
+BuildingName = "母巢核心"
+ConstructionTime = 0.0f  // 初始建筑无需建造时间
+MaxHealth = 1000.0f
+BuildCosts: Empty (free for initial placement)
+
+[Production Queue]
+CanProduce: BP_Drone
+ProductionTime: 5.0 seconds
+ProductionCost: 50 Biomass
+
+[Upgrades]
+- UpgradeHiveLevel: Increases max population
+- UnlockHatchery: Allows more unit production
+- UnlockEvolutionChamber: Enables technology research
+
+---
+
+// Blueprint Asset: BP_Hatchery (孵化池建筑)
+// Parent Class: ABioBuilding
+// Description: 生产战斗单位
+
+[Blueprint]
+DisplayName="孵化池 (Hatchery)"
+Category="BioHive/Buildings"
+
+[Components]
+- StaticMeshComponent (Inherited from BioBuilding)
+- WidgetComponent: HealthBarWidget
+- NiagaraComponent: LiquidFX
+
+[Default Values]
+BuildingType = Hatchery
+BuildingName = "孵化池"
+ConstructionTime = 15.0f
+MaxHealth = 600.0f
+BuildCosts:
+  - ResourceType: Biomass, Amount: 200
+
+[Production Queue]
+CanProduce: BP_Warrior, BP_Hydralisk
+ProductionTimes:
+  - Warrior: 10.0 seconds
+  - Hydralisk: 15.0 seconds
+
+---
+
+// Blueprint Asset: BP_DefenseTower (防御塔建筑)
+// Parent Class: ABioBuilding
+// Description: 自动攻击敌人
+
+[Blueprint]
+DisplayName="防御塔 (Defense Tower)"
+Category="BioHive/Buildings"
+
+[Components]
+- StaticMeshComponent (Inherited from BioBuilding)
+- WidgetComponent: HealthBarWidget
+- SceneComponent: TurretPivot
+- NiagaraComponent: AttackFX
+
+[Default Values]
+BuildingType = DefenseTower
+BuildingName = "防御塔"
+ConstructionTime = 12.0f
+MaxHealth = 400.0f
+AttackDamage = 20.0f
+AttackSpeed = 1.0f
+AttackRange = 500.0f
+BuildCosts:
+  - ResourceType: Biomass, Amount: 150
+
+[AI Behavior]
+AutoTarget: True
+Priority: Closest Enemy

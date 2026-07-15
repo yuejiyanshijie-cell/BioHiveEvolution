@@ -1,0 +1,120 @@
+# BioHiveEvolution - Hive Genesis: Forest Dominion
+# 生物母巢进化游戏项目
+
+## 项目结构
+
+```
+BioHiveEvolution/
+├── Config/
+│   ├── DefaultEngine.ini          # 引擎配置（Nanite/Lumen/输入）
+│   └── DefaultGame.ini            # 游戏配置（项目名称、版本）
+├── Source/
+│   └── BioHive/
+│       ├── BioHive.Build.cs       # 模块构建配置
+│       ├── BioHive.h/.cpp         # 模块入口
+│       ├── BioHiveGameMode.h/.cpp # 游戏模式（母巢等级、人口、科技）
+│       ├── BioHivePlayerController.h/.cpp # 玩家控制器（RTS输入、视角切换）
+│       ├── Units/
+│       │   ├── BioUnit.h/.cpp              # 单位基类（移动、战斗、吞噬）
+│       │   └── BioUnitSelectionManager.h/.cpp # 选择管理器（框选、编队）
+│       ├── Buildings/
+│       │   └── BioBuilding.h/.cpp          # 建筑基类（放置、建造、状态）
+│       ├── Systems/
+│       │   ├── BioResourceTypes.h          # 资源类型定义
+│       │   ├── BioResourceManager.h/.cpp   # 资源管理器（存储、消耗、收入）
+│       │   └── BioResourceNode.h/.cpp      # 资源采集点（采集、再生）
+│       ├── Items/
+│       │   └── BioItemSystem.h/.cpp        # 套装系统（装备、奖励计算）
+│       ├── Camera/
+│       │   └── BioRTSCamera.h/.cpp         # RTS相机（缩放、平移、聚焦）
+│       └── AI/
+│           └── BioAIController.h/.cpp      # AI控制器（行为树、巡逻）
+├── Content/
+│   ├── Blueprints/
+│   │   ├── Units/         # 单位蓝图
+│   │   ├── Buildings/     # 建筑蓝图
+│   │   ├── UI/            # UMG界面蓝图
+│   │   └── AI/            # AI行为树
+│   ├── Maps/              # 关卡
+│   ├── Models/            # 3D模型资产
+│   ├── Materials/         # 材质
+│   └── Sounds/            # 音效
+└── DIR.txt                # 本文件
+```
+
+## 已实现的核心系统
+
+### 1. 资源管理系统 ✅
+- BioResourceManager: 全局资源管理器
+- 资源类型: Biomass, GeneFragments, Energy
+- 支持消费、获取、自动收入
+- BioResourceNode: 可再生的资源采集点
+
+### 2. 建筑系统 ✅
+- ABioBuilding: 建筑基类
+- 放置预览（绿色/红色材质）
+- 建造进度系统
+- 建筑状态: Placement → Constructing → Active → Damaged → Destroyed
+
+### 3. 单位系统 ✅
+- ABioUnit: 单位基类
+- RTS命令: Move, Attack, Harvest, Consume
+- 吞噬系统: 自动攻击→血量降低→吞噬→获得资源
+- 进度条和动画事件
+
+### 4. 套装系统 ✅
+- UItemPiece: 装备部件
+- UItemSet: 套装定义（2/3/4件套奖励）
+- UItemEquipmentComponent: 装备管理器
+- 槽位系统: Core, Weapon, Armor, Sensor, Generator, Movement
+
+### 5. RTS相机系统 ✅
+- ABioRTSCamera: 俯视相机
+- WASD移动、边缘滚动、缩放
+- 相机边界限制
+- 聚焦功能
+
+### 6. 单位选择系统 ✅
+- ABioUnitSelectionManager
+- 单点、框选、Ctrl添加选择
+- 编队系统（Ctrl+数字键）
+- 智能右键命令
+
+### 7. AI系统 ✅
+- ABioAIController
+- 行为树集成
+- 巡逻、追猎、逃跑
+- 感知系统
+
+## 下一步操作
+
+1. **安装UE5**: 从Epic Games Launcher安装UE5.3/5.4
+   - https://www.unrealengine.com/zh-CN/download
+
+2. **创建UE5项目**:
+   - 打开UE5编辑器
+   - 选择"Games" → "Blank" → C++项目
+   - 项目名称: BioHiveEvolution
+   - 将本目录的Source和Config文件夹复制到UE5项目
+
+3. **在UE5编辑器中创建蓝图**:
+   - 基于BioUnit创建 BP_Drone, BP_Warrior
+   - 基于BioBuilding创建 BP_HiveCore, BP_Hatchery
+   - 设置游戏模式为BioHiveGameMode
+
+4. **导入资产**:
+   - 打开Quixel Bridge下载森林资产
+   - 从Sketchfab下载生物模型
+   - 从Mixamo获取角色动画
+
+5. **编译运行**: 
+   - 按Ctrl+Shift+B编译
+   - 按Play测试
+
+## 关键技术特性
+- Nanite虚拟几何体
+- Lumen全局光照
+- MassEntity大规模单位
+- Enhanced Input增强输入系统
+- 行为树AI
+- Gameplay Attributes可选集成

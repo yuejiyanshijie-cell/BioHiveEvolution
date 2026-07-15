@@ -1,0 +1,124 @@
+// Input Mapping Context: IMC_BioHiveRTS
+// 生物母巢RTS控制输入映射
+
+[InputMappingContext]
+Name = "IMC_BioHiveRTS"
+Description = "RTS control scheme for BioHive Evolution"
+
+[Mappings]
+
+// --- Camera Movement ---
+IA_MoveForward (InputAction)
+  Key: W / S
+  Modifiers: None
+  Triggers: Pressed/Released
+  Value: Axis1D (W=+1, S=-1)
+
+IA_MoveRight (InputAction)
+  Key: A / D
+  Modifiers: None
+  Triggers: Pressed/Released
+  Value: Axis1D (D=+1, A=-1)
+
+IA_Zoom (InputAction)
+  Key: Mouse Scroll Wheel
+  Modifiers: None
+  Triggers: Started/Ongoing
+  Value: Axis1D
+
+// --- View Toggle ---
+IA_ToggleView (InputAction)
+  Key: Tab
+  Modifiers: None
+  Triggers: Started
+
+// --- Selection ---
+IA_SelectClick (InputAction)
+  Key: Left Mouse Button
+  Modifiers: None
+  Triggers: Started/Completed
+
+IA_CommandClick (InputAction)
+  Key: Right Mouse Button
+  Modifiers: None
+  Triggers: Started
+
+// --- Build Menu ---
+IA_BuildMenu (InputAction)
+  Key: B
+  Modifiers: None
+  Triggers: Started
+
+// --- Unit Commands ---
+IA_SelectAll (InputAction)
+  Key: A
+  Modifiers: Ctrl
+  Triggers: Started
+
+IA_HoldPosition (InputAction)
+  Key: H
+  Modifiers: None
+  Triggers: Started
+
+IA_AttackMove (InputAction)
+  Key: A
+  Modifiers: None
+  Triggers: Started
+
+IA_Stop (InputAction)
+  Key: S
+  Modifiers: None
+  Triggers: Started
+
+// --- Formation Keys ---
+IA_Formation1 (InputAction)
+  Key: One
+  Modifiers: Ctrl (for create), None (for select)
+  Triggers: Started
+
+IA_Formation2 (InputAction)
+  Key: Two
+  Modifiers: Ctrl / None
+  Triggers: Started
+
+IA_Formation3 (InputAction)
+  Key: Three
+  Modifiers: Ctrl / None
+  Triggers: Started
+
+IA_Formation4 (InputAction)
+  Key: Four
+  Modifiers: Ctrl / None
+  Triggers: Started
+
+IA_Formation5 (InputAction)
+  Key: Five
+  Modifiers: Ctrl / None
+  Triggers: Started
+
+// --- Quick Build Shortcuts ---
+IA_QuickBuildDrone (InputAction)
+  Key: Q
+  Modifiers: None
+  Triggers: Started
+
+IA_QuickBuildWarrior (InputAction)
+  Key: W
+  Modifiers: None
+  Triggers: Started
+
+IA_QuickBuildTower (InputAction)
+  Key: E
+  Modifiers: None
+  Triggers: Started
+
+// --- Camera Hotkeys ---
+IA_CameraCenter (InputAction)
+  Key: Space
+  Modifiers: None
+  Triggers: Started
+
+IA_CameraToSelection (InputAction)
+  Key: F
+  Modifiers: None
+  Triggers: Started

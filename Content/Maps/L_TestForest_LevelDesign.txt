@@ -1,0 +1,248 @@
+// Level: /Game/Maps/L_TestForest
+// 测试关卡 - 幽暗林地初始区域
+
+[Level Settings]
+GameMode = ABioHiveGameMode
+PlayerController = ABioHivePlayerController
+DefaultPawn = None (using camera)
+GameState = ABioResourceManager
+
+[World Settings]
+- World Partition: Enabled (for large map streaming)
+- HLOD: Enabled
+- Lighting: Lumen Global Illumination
+- Post Process Volume: Forest atmosphere
+
+---
+
+[Landscape]
+Size: 4096x4096 units
+Layers:
+  - GrassLayer (Quixel Grass_01, Grass_02)
+  - DirtLayer (Quixel Soil_01)
+  - RockLayer (Quixel Rock_01, Rock_02)
+  - MossLayer (Quixel Moss_01)
+
+Heightmap:
+  - Central valley (spawn area): Elevation 0-200
+  - Surrounding hills: Elevation 200-500
+  - Mountain borders: Elevation 500-1000
+
+---
+
+[Foliage Placement]
+
+// Trees (Quixel Bridge assets)
+TreeType_01: Oak_Tree_Nanite
+  Count: 150
+  Density: Medium clusters
+  Scale: 0.8-1.2 random
+  
+TreeType_02: Pine_Tree_Nanite
+  Count: 100
+  Density: Scattered
+  Scale: 0.7-1.0 random
+
+TreeType_03: Dead_Tree_Nanite
+  Count: 30
+  Density: Sparse (decay areas)
+  Scale: 0.6-0.9 random
+
+// Bushes
+BushType_01: Forest_Bush_01
+  Count: 200
+  Density: Under trees
+  
+BushType_02: Thorny_Bush
+  Count: 80
+  Density: Clustered near rocks
+
+// Ground cover
+GrassPatches: 500 instances
+RockScatter: 300 instances (small rocks)
+MossPatches: 150 instances (on rocks and tree bases)
+FungiClusters: 50 instances (glowing mushrooms)
+
+---
+
+[Resource Nodes Placement]
+
+// Biomass Resources (green glowing organic matter)
+BiomassNode_Large:
+  Count: 8
+  Locations: Scattered across map, near center
+  MaxAmount: 2000 each
+  RegenerationRate: 2.0/sec
+
+BiomassNode_Medium:
+  Count: 15
+  Locations: Between large nodes
+  MaxAmount: 1000 each
+  RegenerationRate: 1.0/sec
+
+BiomassNode_Small:
+  Count: 25
+  Locations: Throughout forest
+  MaxAmount: 500 each
+  RegenerationRate: 0.5/sec
+
+// Gene Fragment Resources (rare purple crystals)
+GeneNode_Rare:
+  Count: 5
+  Locations: Hidden in dense forest areas
+  MaxAmount: 50 each
+  RegenerationRate: 0.1/sec (very slow)
+
+// Energy Nodes (blue glowing orbs)
+EnergyNode:
+  Count: 10
+  Locations: Elevated positions
+  MaxAmount: 200 each
+  RegenerationRate: 0.5/sec
+
+---
+
+[Building Placement Zones]
+
+// Initial Hive Core spawn
+PlayerStart_01:
+  Location: (0, 0, 0)
+  Rotation: (0, 0, 0)
+  Description: Main base location (valley center)
+
+// Expansion zones (flat areas for buildings)
+ExpansionZone_01: Location (500, 300, 50)
+ExpansionZone_02: Location (-400, 200, 80)
+ExpansionZone_03: Location (200, -500, 60)
+
+---
+
+[Enemy Spawn Points]
+
+// Wildlife spawn areas
+WildlifeSpawn_Wolf:
+  Count: 5 packs (3 wolves each)
+  Locations: Forest edges
+  RespawnTime: 60 seconds
+
+WildlifeSpawn_Deer:
+  Count: 8 groups (2-3 deer each)
+  Locations: Open clearings
+  RespawnTime: 45 seconds
+
+WildlifeSpawn_Bear:
+  Count: 3
+  Locations: Deep forest
+  RespawnTime: 120 seconds
+
+// Mutated creature spawns
+MutantSpawn_Viper:
+  Count: 4
+  Locations: Dark caves/undergrowth
+  RespawnTime: 90 seconds
+
+MutantSpawn_Centipede:
+  Count: 2
+  Locations: Underground tunnels
+  RespawnTime: 180 seconds
+
+---
+
+[Lighting & Atmosphere]
+
+DirectionalLight (Sun):
+  Intensity: 3.0
+  Temperature: 5500K
+  CastShadows: Yes (dynamic)
+  LightShafts: Enabled
+
+SkyLight:
+  Source Type: Captured Scene
+  Intensity: 1.0
+  CastShadows: Yes
+
+ExponentialHeightFog:
+  Density: 0.02
+  Height: 200
+  Falloff: 0.5
+  InscatteringColor: Light gray-blue
+
+AtmosphericFog:
+  SunMultiplier: 1.0
+  FogMultiplier: 0.5
+
+PostProcessVolume:
+  BloomIntensity: 0.8
+  VignetteIntensity: 0.3
+  ColorGrading: Slightly green tint (forest feel)
+  AutoExposure: Min 0.5, Max 2.0
+
+---
+
+[Audio]
+
+AmbientSound_ForestDay:
+  - Bird chirping (random intervals)
+  - Wind through trees
+  - Distant water stream
+  Volume: 0.6
+
+AmbientSound_ForestNight:
+  - Cricket sounds
+  - Owl hooting
+  - Rustling leaves
+  Volume: 0.4
+
+ReverbVolume_Forest:
+  Decay Time: 2.5s
+  HF Reference: 5000Hz
+
+---
+
+[Navigation]
+
+NavMeshBoundsVolume:
+  Bounds: 5000x5000x1000
+  Cell Size: 20
+  Agent Radius: 30
+  Agent Height: 150
+
+RecastNavMesh settings:
+  - Include Static Actors: Yes
+  - Include Landscape: Yes
+  - Dynamic Obstacles: Enabled
+
+---
+
+[Gameplay Triggers]
+
+TriggerBox_Tutorial_Start:
+  Location: Near player start
+  OnEnter: Show tutorial UI for basic controls
+
+TriggerBox_FirstCombat:
+  Location: Edge of starting area
+  OnEnter: Spawn 2 wolves, show combat tutorial
+
+TriggerBox_ResourceTutorial:
+  Location: Near first biomass node
+  OnEnter: Highlight resource, show harvest tutorial
+
+---
+
+[Performance Optimization]
+
+Level Streaming:
+  - Central area: Always loaded
+  - Outer regions: Stream based on camera distance
+  - Culling distance: 3000 units
+
+HLOD Generation:
+  - Tree clusters: Combined at LOD 3
+  - Rocks: Combined at LOD 2
+  - Buildings: Individual (important for gameplay)
+
+Nanite:
+  - All tree models: Nanite enabled
+  - Rock formations: Nanite enabled
+  - Buildings: Standard mesh (for material effects)

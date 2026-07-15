@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BioHive Evolution - 生物母巢进化</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            overflow: hidden;
+            font-family: 'Courier New', monospace;
+            background: #000;
+        }
+
+        #gameCanvas {
+            display: block;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        /* UI覆盖层 */
+        #ui-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 100;
+        }
+
+        /* 左上角资源显示 */
+        #resource-panel {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(0, 20, 0, 0.8);
+            border: 2px solid #0f0;
+            padding: 15px;
+            border-radius: 5px;
+            color: #0f0;
+            min-width: 200px;
+        }
+
+        #resource-panel h3 {
+            margin-bottom: 10px;
+            font-size: 18px;
+            text-shadow: 0 0 10px #0f0;
+        }
+
+        .resource-item {
+            margin: 5px 0;
+            font-size: 16px;
+        }
+
+        .resource-value {
+            color: #ff0;
+            font-weight: bold;
+        }
+
+        /* 右上角器官面板 */
+        #organ-panel {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(0, 20, 0, 0.8);
+            border: 2px solid #0f0;
+            padding: 15px;
+            border-radius: 5px;
+            color: #0f0;
+            min-width: 250px;
+        }
+
+        #organ-panel h3 {
+            margin-bottom: 10px;
+            font-size: 18px;
+            text-shadow: 0 0 10px #0f0;
+        }
+
+        .organ-item {
+            margin: 8px 0;
+            padding: 5px;
+            background: rgba(0, 50, 0, 0.5);
+            border: 1px solid #0a0;
+            border-radius: 3px;
+            cursor: pointer;
+            pointer-events: auto;
+            transition: all 0.3s;
+        }
+
+        .organ-item:hover {
+            background: rgba(0, 100, 0, 0.7);
+            border-color: #0f0;
+        }
+
+        .organ-item.unlocked {
+            background: rgba(0, 150, 0, 0.6);
+            border-color: #0f0;
+            color: #fff;
+        }
+
+        .organ-item.locked {
+            opacity: 0.6;
+        }
+
+        .organ-cost {
+            color: #ff0;
+            font-size: 14px;
+        }
+
+        /* 底部操作提示 */
+        #controls-hint {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.7);
+            padding: 10px 20px;
+            border-radius: 5px;
+            color: #0f0;
+            font-size: 14px;
+            text-align: center;
+        }
+
+        /* 准星 */
+        #crosshair {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 20px;
+            height: 20px;
+            border: 2px solid rgba(0, 255, 0, 0.8);
+            border-radius: 50%;
+        }
+
+        #crosshair::before,
+        #crosshair::after {
+            content: '';
+            position: absolute;
+            background: rgba(0, 255, 0, 0.8);
+        }
+
+        #crosshair::before {
+            width: 2px;
+            height: 10px;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        #crosshair::after {
+            width: 10px;
+            height: 2px;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        /* 吞噬提示 */
+        #consume-message {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -80px);
+            color: #0f0;
+            font-size: 20px;
+            font-weight: bold;
+            text-shadow: 0 0 10px #0f0;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        #consume-message.show {
+            opacity: 1;
+        }
+
+        /* 开始界面 */
+        #start-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #001100 0%, #000000 100%);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        #start-screen h1 {
+            color: #0f0;
+            font-size: 48px;
+            margin-bottom: 20px;
+            text-shadow: 0 0 20px #0f0;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        #start-screen p {
+            color: #0a0;
+            font-size: 18px;
+            margin: 10px;
+            max-width: 600px;
+            text-align: center;
+        }
+
+        #start-button {
+            margin-top: 30px;
+            padding: 15px 40px;
+            font-size: 24px;
+            background: #0f0;
+            color: #000;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+
+        #start-button:hover {
+            background: #0a0;
+            box-shadow: 0 0 20px #0f0;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+    </style>
+</head>
+<body>
+    <!-- 开始界面 -->
+    <div id="start-screen">
+        <h1>🧬 BioHive Evolution</h1>
+        <p>你是一座生物母巢的核心,通过吞噬获取生物质,不断进化成为超级生命体!</p>
+        <p style="font-size: 14px; color: #080;">
+            WASD移动 | 鼠标视角 | E吞噬 | 数字键1-5进化器官
+        </p>
+        <button id="start-button">开始进化</button>
+    </div>
+
+    <!-- 游戏画布 -->
+    <canvas id="gameCanvas"></canvas>
+
+    <!-- UI覆盖层 -->
+    <div id="ui-overlay" class="hidden">
+        <div id="resource-panel">
+            <h3>🧬 资源</h3>
+            <div class="resource-item">
+                生物质: <span class="resource-value" id="biomass-display">0</span>
+            </div>
+            <div class="resource-item">
+                已吞噬: <span class="resource-value" id="consumed-display">0</span>
+            </div>
+        </div>
+
+        <div id="organ-panel">
+            <h3>🔬 器官进化</h3>
+            <div id="organ-list"></div>
+        </div>
+
+        <div id="crosshair"></div>
+        <div id="consume-message"></div>
+
+        <div id="controls-hint">
+            WASD: 移动 | 鼠标: 视角 | E: 吞噬 | 1-5: 进化器官
+        </div>
+    </div>
+
+    <!-- Three.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+    <script>
+        // ==================== 游戏配置 ====================
+        const CONFIG = {
+            moveSpeed: 0.15,
+            lookSensitivity: 0.002,
+            consumeRange: 30,
+            consumeCooldown: 1000, // 毫秒
+            organCosts: [10, 25, 50, 100, 200],
+            organNames: [
+                '感知触须 (视野+)',
+                '消化腺体 (生物质+)',
+                '运动肌纤维 (速度+)',
+                '外骨骼装甲 (防御+)',
+                '神经中枢 (控制+)'
+            ]
+        };
+
+        // ==================== 游戏状态 ====================
+        const gameState = {
+            biomass: 0,
+            consumedCount: 0,
+            unlockedOrgans: 0,
+            lastConsumeTime: 0,
+            isGameStarted: false
+        };
+
+        // ==================== Three.js 初始化 ====================
+        const canvas = document.getElementById('gameCanvas');
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x001100);
+        scene.fog = new THREE.Fog(0x001100, 20, 100);
+
+        const camera = new THREE.PerspectiveCamera(
+            75,
+            window.innerWidth / window.innerHeight,
+            0.1,
+            1000
+        );
+        camera.position.set(0, 1.7, 0);
+
+        const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true;
+
+        // ==================== 光照系统 ====================
+        const ambientLight = new THREE.AmbientLight(0x404040, 0.5);
+        scene.add(ambientLight);
+
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        directionalLight.position.set(50, 100, 50);
+        directionalLight.castShadow = true;
+        directionalLight.shadow.camera.left = -50;
+        directionalLight.shadow.camera.right = 50;
+        directionalLight.shadow.camera.top = 50;
+        directionalLight.shadow.camera.bottom = -50;
+        scene.add(directionalLight);
+
+        // ==================== 创建森林环境 ====================
+        function createForest() {
+            // 地面
+            const groundGeometry = new THREE.PlaneGeometry(200, 200);
+            const groundMaterial = new THREE.MeshStandardMaterial({
+                color: 0x1a3d1a,
+                roughness: 0.9
+            });
+            const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+            ground.rotation.x = -Math.PI / 2;
+            ground.receiveShadow = true;
+            scene.add(ground);
+
+            // 树木
+            for (let i = 0; i < 100; i++) {
+                const x = (Math.random() - 0.5) * 180;
+                const z = (Math.random() - 0.5) * 180;
+
+                // 树干
+                const trunkGeometry = new THREE.CylinderGeometry(0.3, 0.5, 3, 8);
+                const trunkMaterial = new THREE.MeshStandardMaterial({ color: 0x4a2f1b });
+                const trunk = new THREE.Mesh(trunkGeometry, trunkMaterial);
+                trunk.position.set(x, 1.5, z);
+                trunk.castShadow = true;
+                scene.add(trunk);
+
+                // 树冠
+                const leavesGeometry = new THREE.SphereGeometry(2, 8, 6);
+                const leavesMaterial = new THREE.MeshStandardMaterial({ color: 0x2d5a2d });
+                const leaves = new THREE.Mesh(leavesGeometry, leavesMaterial);
+                leaves.position.set(x, 4, z);
+                leaves.castShadow = true;
+                scene.add(leaves);
+            }
+
+            // 岩石
+            for (let i = 0; i < 30; i++) {
+                const x = (Math.random() - 0.5) * 180;
+                const z = (Math.random() - 0.5) * 180;
+
+                const rockGeometry = new THREE.DodecahedronGeometry(Math.random() * 1 + 0.5);
+                const rockMaterial = new THREE.MeshStandardMaterial({ color: 0x666666 });
+                const rock = new THREE.Mesh(rockGeometry, rockMaterial);
+                rock.position.set(x, 0.5, z);
+                rock.castShadow = true;
+                scene.add(rock);
+            }
+        }
+
+        createForest();
+
+        // ==================== 可吞噬物体 ====================
+        const consumables = [];
+
+        function createConsumable(type = 'normal') {
+            let geometry, material, biomass;
+
+            switch(type) {
+                case 'small':
+                    geometry = new THREE.SphereGeometry(0.5, 8, 6);
+                    material = new THREE.MeshStandardMaterial({ color: 0x00ff00 });
+                    biomass = 5;
+                    break;
+                case 'large':
+                    geometry = new THREE.BoxGeometry(2, 2, 2);
+                    material = new THREE.MeshStandardMaterial({ color: 0xff0000 });
+                    biomass = 25;
+                    break;
+                default:
+                    geometry = new THREE.SphereGeometry(1, 8, 6);
+                    material = new THREE.MeshStandardMaterial({ color: 0xffff00 });
+                    biomass = 10;
+            }
+
+            const mesh = new THREE.Mesh(geometry, material);
+            const x = (Math.random() - 0.5) * 80;
+            const z = (Math.random() - 0.5) * 80;
+            mesh.position.set(x, 1, z);
+            mesh.castShadow = true;
+
+            mesh.userData = { type, biomass };
+            scene.add(mesh);
+            consumables.push(mesh);
+
+            return mesh;
+        }
+
+        // 初始生成一些可吞噬物体
+        for (let i = 0; i < 20; i++) {
+            createConsumable('normal');
+        }
+        for (let i = 0; i < 10; i++) {
+            createConsumable('small');
+        }
+        for (let i = 0; i < 5; i++) {
+            createConsumable('large');
+        }
+
+        // ==================== 输入处理 ====================
+        const keys = {};
+        let mouseX = 0, mouseY = 0;
+        let pitch = 0, yaw = 0;
+
+        document.addEventListener('keydown', (e) => {
+            keys[e.code] = true;
+
+            // 数字键进化器官
+            if (e.code >= 'Digit1' && e.code <= 'Digit5') {
+                const organIndex = parseInt(e.code.slice(-1)) - 1;
+                evolveOrgan(organIndex);
+            }
+        });
+
+        document.addEventListener('keyup', (e) => {
+            keys[e.code] = false;
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (!gameState.isGameStarted || document.pointerLockElement !== canvas) return;
+
+            yaw -= e.movementX * CONFIG.lookSensitivity;
+            pitch -= e.movementY * CONFIG.lookSensitivity;
+            pitch = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, pitch));
+
+            camera.rotation.order = 'YXZ';
+            camera.rotation.y = yaw;
+            camera.rotation.x = pitch;
+        });
+
+        // 点击画布锁定鼠标
+        canvas.addEventListener('click', () => {
+            if (gameState.isGameStarted) {
+                canvas.requestPointerLock();
+            }
+        });
+
+        // E键吞噬
+        document.addEventListener('keypress', (e) => {
+            if (e.key === 'e' || e.key === 'E') {
+                tryConsume();
+            }
+        });
+
+        // ==================== 移动系统 ====================
+        function updateMovement() {
+            const direction = new THREE.Vector3();
+
+            if (keys['KeyW']) direction.z -= 1;
+            if (keys['KeyS']) direction.z += 1;
+            if (keys['KeyA']) direction.x -= 1;
+            if (keys['KeyD']) direction.x += 1;
+
+            if (direction.length() > 0) {
+                direction.normalize();
+                direction.applyAxisAngle(new THREE.Vector3(0, 1, 0), yaw);
+
+                camera.position.x += direction.x * CONFIG.moveSpeed;
+                camera.position.z += direction.z * CONFIG.moveSpeed;
+
+                // 限制在地图范围内
+                camera.position.x = Math.max(-95, Math.min(95, camera.position.x));
+                camera.position.z = Math.max(-95, Math.min(95, camera.position.z));
+            }
+        }
+
+        // ==================== 吞噬系统 ====================
+        function tryConsume() {
+            const now = Date.now();
+            if (now - gameState.lastConsumeTime < CONFIG.consumeCooldown) return;
+
+            const raycaster = new THREE.Raycaster();
+            raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
+
+            const intersects = raycaster.intersectObjects(consumables);
+
+            if (intersects.length > 0 && intersects[0].distance < CONFIG.consumeRange) {
+                const target = intersects[0].object;
+                consumeTarget(target);
+                gameState.lastConsumeTime = now;
+            }
+        }
+
+        function consumeTarget(target) {
+            const biomassGain = target.userData.biomass;
+            gameState.biomass += biomassGain;
+            gameState.consumedCount++;
+
+            // 移除被吞噬的物体
+            scene.remove(target);
+            consumables.splice(consumables.indexOf(target), 1);
+
+            // 生成新的可吞噬物体
+            setTimeout(() => {
+                const types = ['small', 'normal', 'large'];
+                const weights = [0.5, 0.35, 0.15];
+                const rand = Math.random();
+                let type = 'normal';
+
+                if (rand < weights[0]) type = 'small';
+                else if (rand < weights[0] + weights[1]) type = 'normal';
+                else type = 'large';
+
+                createConsumable(type);
+            }, 3000);
+
+            // 显示提示信息
+            showConsumeMessage(`+${biomassGain} 生物质`);
+            updateUI();
+        }
+
+        function showConsumeMessage(text) {
+            const messageEl = document.getElementById('consume-message');
+            messageEl.textContent = text;
+            messageEl.classList.add('show');
+
+            setTimeout(() => {
+                messageEl.classList.remove('show');
+            }, 1000);
+        }
+
+        // ==================== 进化系统 ====================
+        function evolveOrgan(index) {
+            if (index < 0 || index >= CONFIG.organCosts.length) return;
+
+            // 检查是否已解锁
+            const organBit = 1 << index;
+            if (gameState.unlockedOrgans & organBit) {
+                showConsumeMessage('该器官已解锁!');
+                return;
+            }
+
+            // 检查是否有足够的生物质
+            const cost = CONFIG.organCosts[index];
+            if (gameState.biomass < cost) {
+                showConsumeMessage(`生物质不足! 需要 ${cost}`);
+                return;
+            }
+
+            // 消耗生物质并解锁
+            gameState.biomass -= cost;
+            gameState.unlockedOrgans |= organBit;
+
+            showConsumeMessage(`解锁: ${CONFIG.organNames[index]}`);
+            updateUI();
+        }
+
+        // ==================== UI系统 ====================
+        function initOrganPanel() {
+            const organList = document.getElementById('organ-list');
+            organList.innerHTML = '';
+
+            CONFIG.organNames.forEach((name, index) => {
+                const organItem = document.createElement('div');
+                organItem.className = 'organ-item locked';
+                organItem.dataset.index = index;
+
+                const isUnlocked = gameState.unlockedOrgans & (1 << index);
+                if (isUnlocked) {
+                    organItem.classList.add('unlocked');
+                    organItem.classList.remove('locked');
+                }
+
+                organItem.innerHTML = `
+                    <div>${index + 1}. ${name}</div>
+                    <div class="organ-cost">成本: ${CONFIG.organCosts[index]} 生物质</div>
+                `;
+
+                organItem.addEventListener('click', () => {
+                    evolveOrgan(index);
+                });
+
+                organList.appendChild(organItem);
+            });
+        }
+
+        function updateUI() {
+            document.getElementById('biomass-display').textContent = gameState.biomass.toFixed(1);
+            document.getElementById('consumed-display').textContent = gameState.consumedCount;
+
+            // 更新器官面板
+            const organItems = document.querySelectorAll('.organ-item');
+            organItems.forEach((item, index) => {
+                const isUnlocked = gameState.unlockedOrgans & (1 << index);
+                if (isUnlocked) {
+                    item.classList.add('unlocked');
+                    item.classList.remove('locked');
+                }
+
+                const canAfford = gameState.biomass >= CONFIG.organCosts[index];
+                item.style.opacity = canAfford || isUnlocked ? '1' : '0.5';
+            });
+        }
+
+        // ==================== 游戏循环 ====================
+        function gameLoop() {
+            requestAnimationFrame(gameLoop);
+
+            if (!gameState.isGameStarted) return;
+
+            updateMovement();
+            renderer.render(scene, camera);
+        }
+
+        // ==================== 窗口调整 ====================
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // ==================== 启动游戏 ====================
+        document.getElementById('start-button').addEventListener('click', () => {
+            document.getElementById('start-screen').classList.add('hidden');
+            document.getElementById('ui-overlay').classList.remove('hidden');
+
+            gameState.isGameStarted = true;
+            canvas.requestPointerLock();
+
+            initOrganPanel();
+            updateUI();
+            gameLoop();
+        });
+    </script>
+</body>
+</html>
