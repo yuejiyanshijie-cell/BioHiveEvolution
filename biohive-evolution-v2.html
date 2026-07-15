@@ -822,177 +822,128 @@
         }
 
         // 安全期保护——开局无敌人，30秒后首批刷新
-                // ==================== 军团/编队系统 ====================
+                // ==================== 军团列阵系统 v2 ====================
         let squads = [];
+        let legionWave = 0;
 
         function createSquad(targetX, targetZ) {
-            const squad = {
-                id: Date.now(),
-                units: [],
-                formation: ['wedge', 'line', 'column'][Math.floor(Math.random() * 3)],
-                state: 'advance',
-                targetX: targetX || (Math.random() - 0.5) * 400,
-                targetZ: targetZ || (Math.random() - 0.5) * 400,
-                lastTactic: 0,
-                tankCount: 0,
-                basicCount: 0,
-                fastCount: 0
+            const formations = ['phalanx', 'wedge', 'column'];
+            const form = formations[Math.floor(Math.random() * formations.length)];
+            const ranks = 2 + Math.floor(Math.random() * 2);
+            const rows = 3 + Math.floor(Math.random() * 3);
+            const wings = 1 + Math.floor(Math.random() * 2);
+            const sq = {
+                id: Date.now() + Math.random(),
+                units: [], formation: form, state: 'advance',
+                targetX: targetX || 0, targetZ: targetZ || 0,
+                lastTactic: 0, lastFormUpdate: 0,
+                spawnEdge: Math.floor(Math.random() * 4)
             };
-
-            // Squad composition: 1-2 tank + 3-5 basic + 1-2 fast
-            const tanks = 1 + Math.floor(Math.random() * 2);
-            const basics = 3 + Math.floor(Math.random() * 3);
-            const fasts = 1 + Math.floor(Math.random() * 2);
-            squad.tankCount = tanks;
-            squad.basicCount = basics;
-            squad.fastCount = fasts;
-
-            // Spawn at rally point
-            const spawnX = (Math.random() - 0.5) * 400;
-            const spawnZ = (Math.random() - 0.5) * 400;
-
-            for (let i = 0; i < tanks; i++) {
-                const e = createEnemy('tank');
-                e.position.x = spawnX + (i - tanks/2) * 5;
-                e.position.z = spawnZ + Math.random() * 3;
-                e.userData.squadId = squad.id;
-                e.userData.role = 'tank';
-                squad.units.push(e);
+            let sx, sz;
+            const margin = 200;
+            const edge = sq.spawnEdge;
+            if (edge === 0) { sx = (Math.random()-0.5)*400; sz = -margin; }
+            else if (edge === 1) { sx = margin; sz = (Math.random()-0.5)*400; }
+            else if (edge === 2) { sx = (Math.random()-0.5)*400; sz = margin; }
+            else { sx = -margin; sz = (Math.random()-0.5)*400; }
+            for (let i = 0; i < ranks; i++) {
+                for (let j = 0; j < 3; j++) {
+                    const e = createEnemy('tank');
+                    e.position.set(sx + (j-1)*4, 0, sz + 2);
+                    e.userData.squadId = sq.id; e.userData.role = 'tank';
+                    e.userData.formationX = (j-1)*4; e.userData.formationZ = 2;
+                    sq.units.push(e);
+                }
             }
-            for (let i = 0; i < basics; i++) {
-                const e = createEnemy('basic');
-                e.position.x = spawnX + (i - basics/2) * 4;
-                e.position.z = spawnZ + 4;
-                e.userData.squadId = squad.id;
-                e.userData.role = 'basic';
-                squad.units.push(e);
+            for (let r = 0; r < rows; r++) {
+                for (let c = 0; c < 5; c++) {
+                    const e = createEnemy('basic');
+                    e.position.set(sx + (c-2)*4, 0, sz + 4 + r*3);
+                    e.userData.squadId = sq.id; e.userData.role = 'basic';
+                    e.userData.formationX = (c-2)*4; e.userData.formationZ = 4 + r*3;
+                    sq.units.push(e);
+                }
             }
-            for (let i = 0; i < fasts; i++) {
-                const e = createEnemy('fast');
-                e.position.x = spawnX + (i * 8 - 4);
-                e.position.z = spawnZ + 6;
-                e.userData.squadId = squad.id;
-                e.userData.role = 'fast';
-                squad.units.push(e);
+            for (let w = 0; w < wings; w++) {
+                const efL = createEnemy('fast'); efL.position.set(sx-8, 0, sz+4);
+                efL.userData.squadId = sq.id; efL.userData.role = 'fast';
+                efL.userData.formationX = -10; efL.userData.formationZ = 4;
+                sq.units.push(efL);
+                const efR = createEnemy('fast'); efR.position.set(sx+8, 0, sz+4);
+                efR.userData.squadId = sq.id; efR.userData.role = 'fast';
+                efR.userData.formationX = 10; efR.userData.formationZ = 4;
+                sq.units.push(efR);
             }
-
-            squads.push(squad);
-            return squad;
+            squads.push(sq); return sq;
         }
 
-        // Squad tactical AI
         function updateSquads(deltaTime) {
             const now = Date.now();
-
-            squads.forEach(squad => {
-                // Determine target: player if close, otherwise crystal
-                const alive = squad.units.filter(u => u.userData.health > 0);
+            squads.forEach(sq => {
+                const alive = sq.units.filter(u => u.userData.health > 0);
                 if (alive.length === 0) return;
-
-                // Find squad center
                 let cx = 0, cz = 0;
                 alive.forEach(u => { cx += u.position.x; cz += u.position.z; });
                 cx /= alive.length; cz /= alive.length;
-
-                // Decide target
+                const toX = -cx, toZ = -cz;
+                const toDist = Math.sqrt(toX*toX + toZ*toZ);
+                const dirX = toDist > 0.01 ? toX/toDist : 0;
+                const dirZ = toDist > 0.01 ? toZ/toDist : 0;
                 const distToCrystal = Math.sqrt(cx*cx + cz*cz);
-                const distToPlayer = Math.sqrt((cx - player.position.x)**2 + (cz - player.position.z)**2);
-                let targetX, targetZ;
-                if (distToPlayer < 60) {
-                    targetX = player.position.x + (Math.cos(now/3000) * 10);
-                    targetZ = player.position.z + (Math.sin(now/3000) * 10);
-                } else {
-                    targetX = squad.targetX;
-                    targetZ = squad.targetZ;
+                if (now - sq.lastTactic > 4000) {
+                    sq.lastTactic = now;
+                    const pct = alive.length / sq.units.length;
+                    sq.state = pct < 0.3 ? 'retreat' : (distToCrystal < 30 ? 'marshal' : 'advance');
                 }
-
-                // Tactical state machine
-                if (now - squad.lastTactic > 3000) {
-                    squad.lastTactic = now;
-                    const pctAlive = alive.length / squad.units.length;
-                    if (pctAlive < 0.3) {
-                        squad.state = 'retreat';
-                    } else if (distToPlayer < 30 || distToCrystal < 20) {
-                        squad.state = Math.random() < 0.5 ? 'engage' : 'flank';
-                    } else {
-                        squad.state = 'advance';
-                        squad.targetX = (Math.random() - 0.5) * 400;
-                        squad.targetZ = (Math.random() - 0.5) * 400;
-                    }
-                }
-
-                // Execute by role
+                const baseSpeed = 45 * deltaTime;
                 alive.forEach(unit => {
                     const role = unit.userData.role;
-                    const spd = unit.userData.speed * deltaTime * 60;
-                    let mx = targetX, mz = targetZ;
-
-                    if (role === 'tank') {
-                        // Tanks form frontline between squad and target
-                        const tankIdx = alive.filter(u => u.userData.role === 'tank').indexOf(unit);
-                        const spread = (tankIdx - 1) * 8;
-                        mx += (targetZ > cz ? spread : -spread);
-                        mz += (targetX > cx ? -spread : spread);
-                    } else if (role === 'fast') {
-                        // Flankers circle around
-                        if (squad.state === 'flank') {
-                            const angle = now/2000 + alive.filter(u => u.userData.role === 'fast').indexOf(unit) * Math.PI;
-                            mx = targetX + Math.cos(angle) * 20;
-                            mz = targetZ + Math.sin(angle) * 20;
-                        }
-                        spd *= 1.4;
-                    }
-                    // Basics just move toward target
-
-                    const dx = mx - unit.position.x;
-                    const dz = mz - unit.position.z;
+                    let fx = unit.userData.formationX, fz = unit.userData.formationZ;
+                    if (role === 'fast' && sq.state === 'marshal') { fx = (fx>0?1:-1)*25; fz = -10; }
+                    const angle = Math.atan2(dirX, dirZ);
+                    const rfx = fx*Math.cos(-angle) - fz*Math.sin(-angle);
+                    const rfz = fx*Math.sin(-angle) + fz*Math.cos(-angle);
+                    const mx = cx + rfx, mz = cz + rfz;
+                    const dx = mx - unit.position.x, dz = mz - unit.position.z;
                     const dist = Math.sqrt(dx*dx + dz*dz);
-                    if (dist > 2) {
-                        unit.position.x += (dx/dist) * spd;
-                        unit.position.z += (dz/dist) * spd;
-                    }
-
-                    // Attack nearest enemy unit or crystal
-                    let attackTarget = null;
-                    let minD = 5;
-                    if (distToPlayer < 30) {
-                        minD = 4;
-                        gameState.units.forEach(u => {
-                            const d = unit.position.distanceTo(u.position);
-                            if (d < minD) { minD = d; attackTarget = u; }
-                        });
-                    }
-                    if (!attackTarget && distToCrystal < 15) {
-                        if (unit.position.distanceTo(crystal.position) < 5) {
-                            attackTarget = crystal;
+                    const spd = baseSpeed * (role==='fast'?1.5:role==='tank'?0.9:1.0);
+                    if (dist > 1) { unit.position.x += (dx/dist)*spd*0.5; unit.position.z += (dz/dist)*spd*0.5; }
+                    unit.position.x += dirX*spd*0.3; unit.position.z += dirZ*spd*0.3;
+                    if (distToCrystal < 40) {
+                        let tgt = null, minD = 6;
+                        gameState.units.forEach(u => { const d = unit.position.distanceTo(u.position); if (d < minD) { minD = d; tgt = u; } });
+                        if (!tgt && distToCrystal < 12) tgt = crystal;
+                        if (tgt && now - (unit.userData.lastAttack||0) > 1000) {
+                            unit.userData.lastAttack = now;
+                            const dmg = unit.userData.damage * (role==='tank'?1.5:1);
+                            if (tgt === crystal) {
+                                gameState.crystalHP -= dmg;
+                                if (crystal.children[4] && crystal.children[4].material) {
+                                    crystal.children[4].material.color.set(0xff0000);
+                                    setTimeout(() => { if (crystal.children[4] && crystal.children[4].material) crystal.children[4].material.color.set(0xff66ff); }, 200);
+                                }
+                                if (gameState.crystalHP <= 0) {
+                                    gameState.crystalHP = 0; gameState.isGameOver = true;
+                                    document.getElementById('final-kills').textContent = gameState.consumedCount;
+                                    document.getElementById('final-biomass').textContent = Math.floor(gameState.biomass);
+                                    document.getElementById('gameover-screen').classList.remove('hidden');
+                                }
+                            } else { tgt.userData.health -= dmg; if (tgt.userData.health <= 0) { scene.remove(tgt); gameState.units.splice(gameState.units.indexOf(tgt),1); } }
                         }
                     }
-
-                    if (attackTarget && now - (unit.userData.lastAttack || 0) > 1000) {
-                        unit.userData.lastAttack = now;
-                        const dmg = unit.userData.damage;
-                        if (attackTarget === crystal) {
-                            gameState.crystalHP -= dmg;
-                            showMessage(`水晶受到军团 ${dmg} 点伤害!`, '#ff44ff');
-                            if (gameState.crystalHP <= 0) { gameState.crystalHP = 0; gameState.isGameOver = true; showMessage('水晶被摧毁！游戏结束！', '#ff0000'); document.getElementById('final-kills').textContent = gameState.consumedCount; document.getElementById('final-biomass').textContent = Math.floor(gameState.biomass); document.getElementById('gameover-screen').classList.remove('hidden'); }
-                        } else {
-                            attackTarget.userData.health -= dmg;
-                            if (attackTarget.userData.health <= 0) {
-                                scene.remove(attackTarget);
-                                gameState.units.splice(gameState.units.indexOf(attackTarget), 1);
-                            }
-                        }
-                    }
-
                     unit.position.y = 0;
                 });
             });
-
-            // Clean up dead squads
             squads = squads.filter(s => s.units.some(u => u.userData.health > 0));
         }
 
-        // ==================== 安全期保护 ====================
+        function launchLegionWave() {
+            legionWave++;
+            const count = 2 + legionWave;
+            showMessage('第 ' + legionWave + ' 波敌军军团来袭! (' + count + ' 个军团)', '#ff0000');
+            for (let i = 0; i < count; i++) setTimeout(() => createSquad(), i * 500);
+        }
+// ==================== 安全期保护 ====================
         const safetyCountdown = document.createElement('div');
         safetyCountdown.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);color:#ff0;font-size:36px;font-weight:bold;z-index:500;text-shadow:0 0 20px #ff0;pointer-events:none;display:none;';
         document.body.appendChild(safetyCountdown);
@@ -1233,7 +1184,7 @@
                     if (gameState.safetyTimer > 0) return;
                     const types = ['basic', 'tank', 'fast'];
                     const type = types[Math.floor(Math.random() * types.length)];
-                    createSquad();
+                    launchLegionWave();
                 }, 15000);
 
                 updateUI();
@@ -1386,7 +1337,7 @@
                                 gameState.consumedCount++;
                                 scene.remove(nearest);
                                 enemies.splice(enemies.indexOf(nearest), 1);
-                                setTimeout(() => { if (gameState.safetyTimer > 0) return;                                     const t = ['basic','tank','fast','basic','tank','boss'][Math.floor(Math.random()*6)]; createSquad(); }, 15000);
+                                setTimeout(() => { if (gameState.safetyTimer > 0) return;                                     const t = ['basic','tank','fast','basic','tank','boss'][Math.floor(Math.random()*6)]; launchLegionWave(); }, 15000);
                             }
                         }
                     } else {
