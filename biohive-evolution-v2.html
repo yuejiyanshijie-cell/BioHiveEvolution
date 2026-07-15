@@ -1068,9 +1068,9 @@
                     placeUnitAtCursor();
                 }
                 // 1/2/3 keys: switch unit type in god mode
-                if (e.code === 'Digit1') { gameState.selectedUnitType = 'drone'; showMessage('选中: drone 收集者', '#ffd700'); if(godCursorMesh)godCursorMesh.material.color.set(0x00ff88); }
-                if (e.code === 'Digit2') { gameState.selectedUnitType = 'warrior'; showMessage('选中: warrior 战士', '#ffd700'); if(godCursorMesh)godCursorMesh.material.color.set(0x00cc00); }
-                if (e.code === 'Digit3') { gameState.selectedUnitType = 'hydralisk'; showMessage('选中: hydralisk 远程', '#ffd700'); if(godCursorMesh)godCursorMesh.material.color.set(0x00ff00); }
+                if (e.code === 'Digit1') { currentPlaceType = 'drone'; showMessage('选中: drone 收集者', '#ffd700'); if(godCursorMesh)godCursorMesh.material.color.set(0x00ff88); }
+                if (e.code === 'Digit2') { currentPlaceType = 'warrior'; showMessage('选中: warrior 战士', '#ffd700'); if(godCursorMesh)godCursorMesh.material.color.set(0x00cc00); }
+                if (e.code === 'Digit3') { currentPlaceType = 'hydralisk'; showMessage('选中: hydralisk 远程', '#ffd700'); if(godCursorMesh)godCursorMesh.material.color.set(0x00ff00); }
             }
         });
 
@@ -1362,7 +1362,7 @@
                                 gameState.consumedCount++;
                                 scene.remove(nearest);
                                 enemies.splice(enemies.indexOf(nearest), 1);
-                                setTimeout(() => { if (gameState.safetyTimer > 0) return;                                     const t = ['basic','tank','fast','basic','tank','boss'][Math.floor(Math.random()*6)]; launchLegionWave(); }, 15000);
+                                // wave respawn removed - now handled by dedicated timer
                             }
                         }
                     } else {
@@ -1381,6 +1381,7 @@
         }
 
         // ==================== 上帝视角 + 双模式切换 ====================
+        let currentPlaceType = 'drone';
         let godCameraHeight = 60;
         let godCursorPos = new THREE.Vector3();
         let godCamPos = new THREE.Vector3(0, 60, 0);
@@ -1403,7 +1404,7 @@
         }
 
         function placeUnitAtCursor() {
-            const type = gameState.selectedUnitType || 'drone';
+            const type = currentPlaceType || 'drone';
             const cost = CONFIG.unitCosts[type];
             if (gameState.biomass < cost) { showMessage('生物质不足! 需要'+cost); return; }
             gameState.biomass -= cost;
@@ -1425,6 +1426,54 @@
             if (gameState.cameraMode !== 'god' || !gameState.isGameStarted) return;
             if (e.button !== 0) return;
             placeUnitAtCursor();
+        });
+
+        // Box-select batch placement (Shift+click area deploy)
+        let boxSelectStart = null;
+        let boxSelectActive = false;
+
+        canvas.addEventListener('mousedown', (e) => {
+            if (gameState.cameraMode !== 'god' || !gameState.isGameStarted) return;
+            if (e.button !== 0) return;
+            if (!keys['ShiftLeft'] && !keys['ShiftRight']) return;
+            e.preventDefault();
+            boxSelectStart = godCursorPos.clone();
+            boxSelectActive = true;
+        });
+
+        canvas.addEventListener('mouseup', (e) => {
+            if (!boxSelectActive || !boxSelectStart) return;
+            boxSelectActive = false;
+            const end = godCursorPos.clone();
+            const type = currentPlaceType;
+            const cost = CONFIG.unitCosts[type];
+            const cols = 4, rows = 3; // 4x3 grid = 12 units
+            const totalCost = cost * cols * rows;
+            if (gameState.biomass < totalCost) { showMessage('批量生成需要 ' + totalCost + ' 生物质!'); boxSelectStart = null; return; }
+
+            const minX = Math.min(boxSelectStart.x, end.x);
+            const maxX = Math.max(boxSelectStart.x, end.x);
+            const minZ = Math.min(boxSelectStart.z, end.z);
+            const maxZ = Math.max(boxSelectStart.z, end.z);
+            const stepX = (maxX - minX) / (cols - 1);
+            const stepZ = (maxZ - minZ) / (rows - 1);
+
+            for (let r = 0; r < rows; r++) {
+                for (let c = 0; c < cols; c++) {
+                    const g = new THREE.Group();
+                    let cl,s; if(type==='drone'){cl=0x00ff88;s=0.4}else if(type==='warrior'){cl=0x00cc00;s=0.6}else{cl=0x00ff00;s=0.8}
+                    const b = new THREE.Mesh(new THREE.SphereGeometry(s,8,6), new THREE.MeshStandardMaterial({color:cl}));
+                    b.position.y=s; b.castShadow=true; g.add(b);
+                    g.position.set(minX + c*stepX, 0, minZ + r*stepZ);
+                    const hp = type==='warrior'?300:type==='hydralisk'?240:150;
+                    const dmg = type==='warrior'?12:type==='hydralisk'?16:5;
+                    g.userData = {type, health:hp, maxHealth:hp, damage:dmg, speed:0.08, lastAttack:0};
+                    scene.add(g); gameState.units.push(g);
+                }
+            }
+            gameState.biomass -= totalCost;
+            showMessage('批量放置 ' + (cols*rows) + ' 个 ' + type + '!'); updateUI();
+            boxSelectStart = null;
         });
 
         canvas.addEventListener('wheel', (e) => {
@@ -1508,6 +1557,28 @@
         drawHPBars = function() {
             ctx2d.clearRect(0, 0, ctx2dcanvas.width, ctx2dcanvas.height);
             origDrawHPBars();
+            // Draw box-select rectangle if active
+            if (boxSelectActive && boxSelectStart) {
+                const end = godCursorPos.clone();
+                const s1 = boxSelectStart.clone().project(camera);
+                const s2 = end.clone().project(camera);
+                const x1 = (s1.x*0.5+0.5)*window.innerWidth;
+                const y1 = (-s1.y*0.5+0.5)*window.innerHeight;
+                const x2 = (s2.x*0.5+0.5)*window.innerWidth;
+                const y2 = (-s2.y*0.5+0.5)*window.innerHeight;
+                ctx2d.strokeStyle = '#ffd700';
+                ctx2d.lineWidth = 2;
+                ctx2d.setLineDash([6, 3]);
+                ctx2d.strokeRect(Math.min(x1,x2), Math.min(y1,y2), Math.abs(x2-x1), Math.abs(y2-y1));
+                ctx2d.setLineDash([]);
+                // Show estimated cost
+                const type = currentPlaceType;
+                const totalCost = CONFIG.unitCosts[type] * 12;
+                ctx2d.fillStyle = '#ffd700';
+                ctx2d.font = '16px monospace';
+                ctx2d.textAlign = 'center';
+                ctx2d.fillText('4x3 ' + type + ' = ' + totalCost + ' 生物质', (x1+x2)/2, Math.min(y1,y2)-10);
+            }
         };
 
         // ==================== 游戏循环 ====================
@@ -1532,15 +1603,21 @@
                     gameState.safetyTimer = 0;
                     safetyCountdown.style.display = 'none';
                     showMessage('⚠️ 安全期结束！敌军来袭！', '#ff4444');
-                    // Spawn initial wave
-                    createEnemy('basic'); createEnemy('basic');
-                    createEnemy('tank');
-                    createEnemy('fast');
+                    launchLegionWave();
                 } else {
                     const remaining = Math.ceil(gameState.safetyTimer);
                     safetyCountdown.style.display = 'block';
                     safetyCountdown.textContent = '安全期 ' + remaining + 's';
                     if (remaining <= 5) safetyCountdown.style.color = '#f44';
+                }
+            }
+
+            // Auto-respawn wave timer: every 30s if <6 squads active
+            if (gameState.safetyTimer <= 0) {
+                nextWaveTimer += deltaTime;
+                if (nextWaveTimer >= 30) {
+                    nextWaveTimer = 0;
+                    if (squads.length < 6) launchLegionWave();
                 }
             }
 
