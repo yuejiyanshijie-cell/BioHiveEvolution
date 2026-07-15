@@ -413,7 +413,7 @@
             lookSensitivity: 0.002,
             consumeRange: 12,
             consumeCooldown: 600,
-            crystalMaxHP: 500,
+            crystalMaxHP: 1200,
                                     unitCosts: {
                 drone: 10,
                 warrior: 25,
@@ -759,20 +759,20 @@
                     break;
                 case 'tank':
                     health = 450;
-                    damage = 12;
-                    speed = 0.05;
+                    damage = 5;
+                    speed = 0.03;
                     color = 0x880000;
                     break;
                 case 'fast':
                     health = 150;
-                    damage = 6;
-                    speed = 0.12;
+                    damage = 4;
+                    speed = 0.06;
                     color = 0xff4400;
                     break;
-                default:
+                case 'basic':
                     health = 300;
-                    damage = 8;
-                    speed = 0.08;
+                    damage = 4;
+                    speed = 0.04;
                     color = 0xaa0000;
             }
 
@@ -827,52 +827,45 @@
         let legionWave = 0;
 
         function createSquad(targetX, targetZ) {
-            const formations = ['phalanx', 'wedge', 'column'];
-            const form = formations[Math.floor(Math.random() * formations.length)];
-            const ranks = 2 + Math.floor(Math.random() * 2);
-            const rows = 3 + Math.floor(Math.random() * 3);
-            const wings = 1 + Math.floor(Math.random() * 2);
             const sq = {
                 id: Date.now() + Math.random(),
-                units: [], formation: form, state: 'advance',
-                targetX: targetX || 0, targetZ: targetZ || 0,
-                lastTactic: 0, lastFormUpdate: 0,
+                units: [], state: 'advance',
+                lastTactic: 0,
                 spawnEdge: Math.floor(Math.random() * 4)
             };
             let sx, sz;
-            const margin = 200;
+            const margin = 220;
             const edge = sq.spawnEdge;
-            if (edge === 0) { sx = (Math.random()-0.5)*400; sz = -margin; }
-            else if (edge === 1) { sx = margin; sz = (Math.random()-0.5)*400; }
-            else if (edge === 2) { sx = (Math.random()-0.5)*400; sz = margin; }
-            else { sx = -margin; sz = (Math.random()-0.5)*400; }
-            for (let i = 0; i < ranks; i++) {
-                for (let j = 0; j < 3; j++) {
-                    const e = createEnemy('tank');
-                    e.position.set(sx + (j-1)*4, 0, sz + 2);
-                    e.userData.squadId = sq.id; e.userData.role = 'tank';
-                    e.userData.formationX = (j-1)*4; e.userData.formationZ = 2;
+            if (edge === 0) { sx = (Math.random()-0.5)*450; sz = -margin; }
+            else if (edge === 1) { sx = margin; sz = (Math.random()-0.5)*450; }
+            else if (edge === 2) { sx = (Math.random()-0.5)*450; sz = margin; }
+            else { sx = -margin; sz = (Math.random()-0.5)*450; }
+
+            // 4×4 方阵（16 人）：第一排 tank，后三排 basic
+            const spacing = 5;
+            for (let r = 0; r < 4; r++) {
+                const type = r === 0 ? 'tank' : 'basic';
+                for (let c = 0; c < 4; c++) {
+                    const e = createEnemy(type);
+                    e.position.set(sx + (c-1.5)*spacing, 0, sz + r*spacing);
+                    e.userData.squadId = sq.id;
+                    e.userData.role = type;
+                    e.userData.formationX = (c-1.5)*spacing;
+                    e.userData.formationZ = r*spacing;
                     sq.units.push(e);
                 }
             }
-            for (let r = 0; r < rows; r++) {
-                for (let c = 0; c < 5; c++) {
-                    const e = createEnemy('basic');
-                    e.position.set(sx + (c-2)*4, 0, sz + 4 + r*3);
-                    e.userData.squadId = sq.id; e.userData.role = 'basic';
-                    e.userData.formationX = (c-2)*4; e.userData.formationZ = 4 + r*3;
+            // 左右各 2 个 fast 护翼
+            for (let side = -1; side <= 1; side += 2) {
+                for (let i = 0; i < 2; i++) {
+                    const e = createEnemy('fast');
+                    e.position.set(sx + side*(spacing*2 + i*3), 0, sz + i*spacing);
+                    e.userData.squadId = sq.id;
+                    e.userData.role = 'fast';
+                    e.userData.formationX = side*(spacing*2 + i*3);
+                    e.userData.formationZ = i*spacing;
                     sq.units.push(e);
                 }
-            }
-            for (let w = 0; w < wings; w++) {
-                const efL = createEnemy('fast'); efL.position.set(sx-8, 0, sz+4);
-                efL.userData.squadId = sq.id; efL.userData.role = 'fast';
-                efL.userData.formationX = -10; efL.userData.formationZ = 4;
-                sq.units.push(efL);
-                const efR = createEnemy('fast'); efR.position.set(sx+8, 0, sz+4);
-                efR.userData.squadId = sq.id; efR.userData.role = 'fast';
-                efR.userData.formationX = 10; efR.userData.formationZ = 4;
-                sq.units.push(efR);
             }
             squads.push(sq); return sq;
         }
@@ -882,45 +875,67 @@
             squads.forEach(sq => {
                 const alive = sq.units.filter(u => u.userData.health > 0);
                 if (alive.length === 0) return;
+                // 军团中心
                 let cx = 0, cz = 0;
                 alive.forEach(u => { cx += u.position.x; cz += u.position.z; });
                 cx /= alive.length; cz /= alive.length;
-                const toX = -cx, toZ = -cz;
-                const toDist = Math.sqrt(toX*toX + toZ*toZ);
-                const dirX = toDist > 0.01 ? toX/toDist : 0;
-                const dirZ = toDist > 0.01 ? toZ/toDist : 0;
-                const distToCrystal = Math.sqrt(cx*cx + cz*cz);
-                if (now - sq.lastTactic > 4000) {
+                // 方向：直指水晶(0,0)
+                const toDist = Math.sqrt(cx*cx + cz*cz);
+                const dirX = toDist > 0.1 ? -cx/toDist : 0;
+                const dirZ = toDist > 0.1 ? -cz/toDist : 0;
+                const distToCrystal = toDist;
+
+                // 状态
+                if (now - sq.lastTactic > 5000) {
                     sq.lastTactic = now;
                     const pct = alive.length / sq.units.length;
-                    sq.state = pct < 0.3 ? 'retreat' : (distToCrystal < 30 ? 'marshal' : 'advance');
+                    sq.state = pct < 0.3 ? 'retreat' : 'advance';
                 }
-                const baseSpeed = 45 * deltaTime;
+
+                // 极低速行军（每秒约 3 单位，从边缘 220 → 水晶约 70 秒）
+                const baseSpeed = 3.0 * deltaTime;
+
                 alive.forEach(unit => {
                     const role = unit.userData.role;
-                    let fx = unit.userData.formationX, fz = unit.userData.formationZ;
-                    if (role === 'fast' && sq.state === 'marshal') { fx = (fx>0?1:-1)*25; fz = -10; }
+                    let fx = unit.userData.formationX;
+                    let fz = unit.userData.formationZ;
+                    // fast 在 flank 时展开
+                    if (role === 'fast' && distToCrystal < 40) {
+                        fx = (fx > 0 ? 1 : -1) * 22;
+                        fz = -8;
+                    }
+                    // 旋转阵型朝向水晶
                     const angle = Math.atan2(dirX, dirZ);
                     const rfx = fx*Math.cos(-angle) - fz*Math.sin(-angle);
                     const rfz = fx*Math.sin(-angle) + fz*Math.cos(-angle);
-                    const mx = cx + rfx, mz = cz + rfz;
-                    const dx = mx - unit.position.x, dz = mz - unit.position.z;
+                    const mx = cx + rfx;
+                    const mz = cz + rfz;
+                    // 向阵位移动
+                    const dx = mx - unit.position.x;
+                    const dz = mz - unit.position.z;
                     const dist = Math.sqrt(dx*dx + dz*dz);
-                    const spd = baseSpeed * (role==='fast'?1.5:role==='tank'?0.9:1.0);
-                    if (dist > 1) { unit.position.x += (dx/dist)*spd*0.5; unit.position.z += (dz/dist)*spd*0.5; }
-                    unit.position.x += dirX*spd*0.3; unit.position.z += dirZ*spd*0.3;
-                    if (distToCrystal < 40) {
-                        let tgt = null, minD = 6;
-                        gameState.units.forEach(u => { const d = unit.position.distanceTo(u.position); if (d < minD) { minD = d; tgt = u; } });
-                        if (!tgt && distToCrystal < 12) tgt = crystal;
-                        if (tgt && now - (unit.userData.lastAttack||0) > 1000) {
+                    const spd = baseSpeed * (role === 'fast' ? 1.4 : 1.0);
+                    unit.position.x += (dx/Math.max(1,dist)) * spd;
+                    unit.position.z += (dz/Math.max(1,dist)) * spd;
+
+                    // 攻击：优先我方单位，其次水晶
+                    if (distToCrystal < 50) {
+                        let tgt = null, minD = (role === 'tank' ? 7 : 5);
+                        gameState.units.forEach(u => {
+                            const d = unit.position.distanceTo(u.position);
+                            if (d < minD) { minD = d; tgt = u; }
+                        });
+                        if (!tgt && unit.position.distanceTo(crystal.position) < 6) {
+                            tgt = crystal;
+                        }
+                        if (tgt && now - (unit.userData.lastAttack||0) > 1200) {
                             unit.userData.lastAttack = now;
-                            const dmg = unit.userData.damage * (role==='tank'?1.5:1);
+                            const dmg = unit.userData.damage * (role === 'tank' ? 1.3 : 1);
                             if (tgt === crystal) {
                                 gameState.crystalHP -= dmg;
-                                if (crystal.children[4] && crystal.children[4].material) {
+                                if (crystal.children[4]?.material) {
                                     crystal.children[4].material.color.set(0xff0000);
-                                    setTimeout(() => { if (crystal.children[4] && crystal.children[4].material) crystal.children[4].material.color.set(0xff66ff); }, 200);
+                                    setTimeout(() => { if (crystal.children[4]?.material) crystal.children[4].material.color.set(0xff66ff); }, 200);
                                 }
                                 if (gameState.crystalHP <= 0) {
                                     gameState.crystalHP = 0; gameState.isGameOver = true;
@@ -928,7 +943,10 @@
                                     document.getElementById('final-biomass').textContent = Math.floor(gameState.biomass);
                                     document.getElementById('gameover-screen').classList.remove('hidden');
                                 }
-                            } else { tgt.userData.health -= dmg; if (tgt.userData.health <= 0) { scene.remove(tgt); gameState.units.splice(gameState.units.indexOf(tgt),1); } }
+                            } else {
+                                tgt.userData.health -= dmg;
+                                if (tgt.userData.health <= 0) { scene.remove(tgt); gameState.units.splice(gameState.units.indexOf(tgt),1); }
+                            }
                         }
                     }
                     unit.position.y = 0;
