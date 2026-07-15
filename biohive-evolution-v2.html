@@ -342,9 +342,9 @@
         <h1>🧬 BioHive Evolution v2</h1>
         <p>第三人称升级版 - 建立你的生物帝国!</p>
         <p>
-            🎮 WASD移动 | 鼠标视角 | E吞噬/攻击 | 空格生成单位<br>
-            👁️ Q键切换上帝视角 | 🖱️ 点击地面放置兵种 | 🔍 滚轮缩放<br>
-            🛡️ 开局30秒安全保护期 | 非上帝视角仅观察 | 按Q进入指挥模式
+            👁️ 自由飞行观察 | Q进入上帝视角 | 鼠标视角<br>
+            🎮 上帝视角: [1]drone [2]战士 [3]远程 | 点击放置 | WASD平移 | 滚轮缩放<br>
+            🛡️ 开局30秒安全保护期 | 观察器Q/E升降 | 非上帝仅观察
         </p>
         <button id="start-button">开始进化</button>
     </div>
@@ -1088,22 +1088,37 @@
 
 
 
-        // ==================== 移动系统 ====================
+        // ==================== 观察器系统（非上帝视角自由飞行） ====================
+        let observerPos = new THREE.Vector3(0, 30, 40);
+
         function updateMovement() {
-            // Only update camera - player stays stationary in third-person
-            const cameraOffset = new THREE.Vector3(0, 5, 10);
-            cameraOffset.applyAxisAngle(new THREE.Vector3(0, 1, 0), yaw);
+            // Free-flying observer camera (WASD + Q/E for height, mouse for look)
+            const dir = new THREE.Vector3();
+            if (keys['KeyW']) dir.z -= 1;
+            if (keys['KeyS']) dir.z += 1;
+            if (keys['KeyA']) dir.x -= 1;
+            if (keys['KeyD']) dir.x += 1;
 
-            camera.position.lerp(
-                new THREE.Vector3(
-                    player.position.x + cameraOffset.x,
-                    player.position.y + cameraOffset.y,
-                    player.position.z + cameraOffset.z
-                ),
-                0.1
-            );
+            if (dir.length() > 0) {
+                dir.normalize();
+                dir.applyAxisAngle(new THREE.Vector3(0, 1, 0), yaw);
+                const spd = 40 * 0.016;
+                observerPos.x += dir.x * spd;
+                observerPos.z += dir.z * spd;
+            }
+            // Q/E fly up/down
+            if (keys['KeyQ']) observerPos.y += 0.5;
+            if (keys['KeyE']) observerPos.y -= 0.5;
+            observerPos.y = Math.max(5, Math.min(200, observerPos.y));
+            observerPos.x = Math.max(-245, Math.min(245, observerPos.x));
+            observerPos.z = Math.max(-245, Math.min(245, observerPos.z));
 
-            camera.lookAt(player.position.x, player.position.y + 2, player.position.z);
+            camera.position.lerp(observerPos, 0.08);
+            // Look toward ground ahead
+            const lookTarget = new THREE.Vector3(observerPos.x, observerPos.y - 5, observerPos.z);
+            lookTarget.x += Math.sin(yaw) * 15;
+            lookTarget.z += Math.cos(yaw) * 15;
+            camera.lookAt(lookTarget.x, lookTarget.y, lookTarget.z);
         }
 
         // ==================== 吞噬/攻击系统 ====================
@@ -1360,6 +1375,7 @@
         // ==================== 上帝视角 + 双模式切换 ====================
         let godCameraHeight = 60;
         let godCursorPos = new THREE.Vector3();
+        let godCamPos = new THREE.Vector3(0, 60, 0);
         let godCursorMesh = null;
         (function(){const g=new THREE.RingGeometry(1.5,2,32);const m=new THREE.MeshBasicMaterial({color:0x00ff00,side:THREE.DoubleSide,transparent:true,opacity:0.6});godCursorMesh=new THREE.Mesh(g,m);godCursorMesh.rotation.x=-Math.PI/2;godCursorMesh.visible=false;scene.add(godCursorMesh);})();
 
@@ -1368,7 +1384,8 @@
                 gameState.cameraMode = 'god';
                 if (document.exitPointerLock) document.exitPointerLock();
                 godCursorMesh.visible = true;
-                showMessage('上帝视角 - [1]drone [2]warrior [3]hydralisk | 点击放置 | Q返回', '#ffd700');
+                godCamPos.set(godCursorPos.x || 0, godCameraHeight, godCursorPos.z || 0);
+                showMessage('[1]drone [2]warrior [3]hydralisk | 点击放置 | WASD平移 | Q返回', '#ffd700');
             } else {
                 gameState.cameraMode = 'third';
                 godCursorMesh.visible = false;
@@ -1516,15 +1533,16 @@
             }
 
             if (gameState.cameraMode === 'god') {
-                camera.position.set(godCursorPos.x, godCameraHeight, godCursorPos.z + 0.01);
-                camera.lookAt(godCursorPos.x, 0, godCursorPos.z);
-                const panSpeed = 40 * deltaTime;
-                if (keys['KeyW']) { godCursorPos.z -= panSpeed; }
-                if (keys['KeyS']) { godCursorPos.z += panSpeed; }
-                if (keys['KeyA']) { godCursorPos.x -= panSpeed; }
-                if (keys['KeyD']) { godCursorPos.x += panSpeed; }
-                godCursorPos.x = Math.max(-245, Math.min(245, godCursorPos.x));
-                godCursorPos.z = Math.max(-245, Math.min(245, godCursorPos.z));
+                // Camera stays at godCamPos, moves only with WASD (not mouse)
+                camera.position.set(godCamPos.x, godCameraHeight, godCamPos.z + 0.01);
+                camera.lookAt(godCamPos.x, 0, godCamPos.z);
+                const panSpeed = 50 * deltaTime;
+                if (keys['KeyW']) { godCamPos.z -= panSpeed; }
+                if (keys['KeyS']) { godCamPos.z += panSpeed; }
+                if (keys['KeyA']) { godCamPos.x -= panSpeed; }
+                if (keys['KeyD']) { godCamPos.x += panSpeed; }
+                godCamPos.x = Math.max(-245, Math.min(245, godCamPos.x));
+                godCamPos.z = Math.max(-245, Math.min(245, godCamPos.z));
                 if (godCursorMesh) godCursorMesh.position.copy(godCursorPos);
             } else {
                 updateMovement();
