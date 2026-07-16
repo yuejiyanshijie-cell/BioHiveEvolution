@@ -684,7 +684,63 @@ function harvesterAI(u,s,dt){
       if(nd<2){u.userData.miningTimer=(u.userData.miningTimer||0)+dt;if(u.userData.miningTimer>1.5){u.userData.miningTimer=0;u.userData.hasOre=true;u.userData._cargo=ne.userData.give;ne.userData.collected=true;ne.visible=false;setTimeout(()=>{const t=Math.floor(Math.random()*4);ne.position.set((Math.random()-.5)*460,0,(Math.random()-.5)*460);ne.userData.resType=t;ne.userData.give=RES_TYPES[t].give;ne.userData.collected=false;ne.visible=true;const m=ne.children[0];if(m&&m.material)m.material.color.set(RES_TYPES[t].clr);ne.children[0].scale.setScalar(RES_TYPES[t].sz/0.3)},3000+Math.random()*3000)}}}
   }
 }
-function combatAI(u,s,now){const isRanged=u.userData.type===2||u.userData.type===3,range=isRanged?(u.userData.type===3?28:20):4;let n=null,nd=50;S.enemies.forEach(e=>{const d=u.position.distanceTo(e.position);if(d<nd&&e.userData.hp>0){nd=d;n=e}});if(n){const dir=new THREE.Vector3().subVectors(n.position,u.position).normalize();if(nd>range+2){u.position.x+=dir.x*s;u.position.z+=dir.z*s}if(nd<range&&now-(u.userData.lastAttack||0)>800){u.userData.lastAttack=now;if(isRanged)fireProjectile(u,dir,n,false);else{const dmg=u.userData.dmg;n.userData.hp-=dmg;if(n.userData.hp<=0){S.biomass+=30;S.ate++;u.userData.kills++;scene.remove(n);S.enemies.splice(S.enemies.indexOf(n),1)}}}}else{const dh=u.position.distanceTo(hive.position);if(dh<(isRanged?15:8)&&now-(u.userData.lastAttack||0)>500){u.userData.lastAttack=now;if(isRanged)fireProjectile(u,new THREE.Vector3().subVectors(hive.position,u.position).normalize(),hive,true);else{S.hiveHP-=u.userData.dmg;if(S.hiveHP<=0){S.hiveHP=0;S.won=true;gameWin()}}}else if(dh<40&&!isRanged){const dhv=new THREE.Vector3().subVectors(hive.position,u.position).normalize();u.position.x+=dhv.x*s;u.position.z+=dhv.z*s}}}
+function combatAI(u,s,now){
+  const type = u.userData.type;
+  const isRanged = type===2 || type===3;
+  const range = isRanged ? (type===3?28:20) : 4;
+  const seekRange = isRanged ? 50 : 50;
+  
+  // Find nearest enemy
+  let targetEnemy = null, nearestDist = seekRange;
+  S.enemies.forEach(e => {
+    if(!e.userData || e.userData.hp <= 0) return;
+    const d = u.position.distanceTo(e.position);
+    if(d < nearestDist){ nearestDist = d; targetEnemy = e; }
+  });
+  
+  if(targetEnemy){
+    // Move toward enemy
+    const dir = new THREE.Vector3().subVectors(targetEnemy.position, u.position).normalize();
+    if(nearestDist > range+2){
+      u.position.x += dir.x * s;
+      u.position.z += dir.z * s;
+    }
+    // Attack
+    if(nearestDist < range && now - (u.userData.lastAttack||0) > 800){
+      u.userData.lastAttack = now;
+      if(isRanged){
+        fireProjectile(u, dir, targetEnemy, false);
+      } else {
+        targetEnemy.userData.hp -= (u.userData.dmg || 1);
+        if(targetEnemy.userData.hp <= 0){
+          S.biomass += 30;
+          S.ate++;
+          u.userData.kills = (u.userData.kills||0) + 1;
+          scene.remove(targetEnemy);
+          S.enemies.splice(S.enemies.indexOf(targetEnemy), 1);
+        }
+      }
+    }
+  } else {
+    // No enemies: go attack hive
+    const dh = u.position.distanceTo(hive.position);
+    const attackRange = isRanged ? 15 : 8;
+    if(dh < attackRange && now - (u.userData.lastAttack||0) > 500){
+      u.userData.lastAttack = now;
+      if(isRanged){
+        const dhv = new THREE.Vector3().subVectors(hive.position, u.position).normalize();
+        fireProjectile(u, dhv, hive, true);
+      } else {
+        S.hiveHP -= (u.userData.dmg || 1);
+        if(S.hiveHP <= 0){ S.hiveHP = 0; S.won = true; gameWin(); }
+      }
+    } else if(dh < 40 && !isRanged){
+      const dhv = new THREE.Vector3().subVectors(hive.position, u.position).normalize();
+      u.position.x += dhv.x * s;
+      u.position.z += dhv.z * s;
+    }
+  }
+}
 function fireProjectile(u,dir,tgt,isHive){const p=new THREE.Mesh(new THREE.SphereGeometry(.12,4,4),new THREE.MeshBasicMaterial({color:isHive?0xff0000:u.userData.type===3?0xcc44ff:0xff2222}));p.position.set(u.position.x,1,u.position.z);p.userData={dmg:u.userData.dmg,owner:u,target:tgt,isHive:isHive,vx:dir.x*(isHive?12:16),vz:dir.z*(isHive?12:16),life:2};scene.add(p);if(!S.projectiles)S.projectiles=[];S.projectiles.push(p)}
 
   // Hive phase triggers
