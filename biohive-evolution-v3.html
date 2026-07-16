@@ -48,6 +48,7 @@ canvas{display:block;width:100vw;height:100vh}
     <div class="r">已吞噬: <span id="ate">0</span></div>
     <div class="r">单位: <span id="cnt">0</span></div>
     <div class="r">💎 水晶: <span id="cry">2000/2000</span></div>
+    <div class="r">⛏️ 矿区: <span id="mines">0/3</span></div>
     <div id="place-panel">
       <div class="t">⚔ 点按钮选兵种，再点地图放置</div>
       <button id="bt-drone" class="sel" onclick="pick('drone')">🟢 工蜂 (10)</button>
@@ -96,7 +97,9 @@ const S = {
   safety: 30,
   waveNum: 0,
   waveTimer: 0,
-  lastWave: 0
+  lastWave: 0,
+  mines: [],
+  mineIncomeTimer: 0
 };
 
 // ---- Three.js ----
@@ -561,6 +564,74 @@ function launchWave() {
 }
 
 // ---- Game Loop ----
+// ==================== 矿区系统 ====================
+function createMine(x, z) {
+  const g = new THREE.Group();
+  const ring = new THREE.Mesh(
+    new THREE.TorusGeometry(3, .3, 8, 32),
+    new THREE.MeshStandardMaterial({ color: 0x888888, roughness: .5, metalness: .6 })
+  );
+  ring.rotation.x = -Math.PI / 2;
+  g.add(ring);
+  const colors = [0xff6600, 0xff8800, 0xffaa00];
+  for (let i = 0; i < 3; i++) {
+    const c = new THREE.Mesh(
+      new THREE.OctahedronGeometry(.6 + i * .3, 1),
+      new THREE.MeshStandardMaterial({ color: colors[i], emissive: colors[i], emissiveIntensity: .4, roughness: .2 })
+    );
+    c.position.y = 1 + i * .4;
+    c.castShadow = true;
+    g.add(c);
+  }
+  g.position.set(x, 0, z);
+  g.userData = { captured: false, biomass: 50, maxBiomass: 200, growthRate: 2, guardTimer: 0, guardInterval: 45, collectTimer: 0, collectInterval: 8, guardLevel: 1 };
+  scene.add(g);
+  S.mines.push(g);
+  for (let i = 0; i < 3; i++) {
+    const guard = spawnEnemy('tank');
+    guard.position.set(x + (Math.random() - .5) * 8, 0, z + (Math.random() - .5) * 8);
+    guard.userData.mineGuard = true; guard.userData.mineX = x; guard.userData.mineZ = z;
+    guard.userData.hp = 600; guard.userData.maxHp = 600; guard.userData.dmg = 8;
+  }
+}
+
+function updateMines(dt) {
+  S.mines.forEach(m => {
+    const d = m.userData;
+    if (!d.captured) { d.biomass = Math.min(d.maxBiomass, d.biomass + d.growthRate * dt); }
+    if (!d.captured) {
+      d.guardTimer += dt;
+      if (d.guardTimer >= d.guardInterval) {
+        d.guardTimer = 0; d.guardLevel++;
+        const alive = S.enemies.filter(e => e.userData.mineGuard && Math.abs(e.position.x - m.position.x) < 8 && Math.abs(e.position.z - m.position.z) < 8);
+        if (alive.length < 4) {
+          const guard = spawnEnemy(d.guardLevel >= 5 ? 'tank' : 'basic');
+          guard.position.set(m.position.x + (Math.random() - .5) * 8, 0, m.position.z + (Math.random() - .5) * 8);
+          guard.userData.mineGuard = true; guard.userData.mineX = m.position.x; guard.userData.mineZ = m.position.z;
+          const gs = 1 + (d.guardLevel - 1) * .3;
+          guard.userData.hp = Math.floor(guard.userData.hp * gs); guard.userData.maxHp = guard.userData.hp;
+          guard.userData.dmg = Math.floor(guard.userData.dmg * (1 + (d.guardLevel - 1) * .15));
+        }
+      }
+    }
+    if (d.captured) {
+      d.collectTimer += dt;
+      if (d.collectTimer >= d.collectInterval) { d.collectTimer = 0; S.biomass += d.biomass; }
+    }
+    const ring = m.children[0];
+    if (ring && ring.material) { ring.material.color.set(d.captured ? 0x00ff88 : (d.biomass > 100 ? 0xff6600 : 0x888888)); }
+  });
+}
+
+function updateMineUI() {
+  const cap = S.mines.filter(m => m.userData.captured).length;
+  document.getElementById('mines').textContent = cap + '/' + S.mines.length;
+}
+
+createMine(-120, -100);
+createMine(130, -80);
+createMine(20, 140);
+
 function loop(time) {
   requestAnimationFrame(loop);
   if (!S.started || S.over) { renderer.render(scene, camera); return; }
@@ -698,6 +769,36 @@ function loop(time) {
     S.waveTimer += dt;
     if (S.waveTimer >= 20) { S.waveTimer = 0; if (squads.length < 10) launchWave(); }
   }
+
+  // Update mines + capture check
+  updateMines(dt);
+  S.mines.forEach(m => {
+    const d = m.userData;
+    if (!d.captured) {
+      const guards = S.enemies.filter(e => e.userData.mineGuard && Math.abs(e.position.x - m.position.x) < 8 && Math.abs(e.position.z - m.position.z) < 8 && e.userData.hp > 0);
+      if (guards.length === 0) { d.captured = true; msg('矿区已占领! +'+Math.floor(d.biomass)+'生物质/波', '#ffd700'); }
+    }
+  });
+  updateMineUI();
+
+  // Mine guards: stay near mine, don't join squads
+  S.enemies.forEach(e => {
+    if (e.userData.mineGuard && e.userData.hp > 0) {
+      const mx = e.userData.mineX || 0, mz = e.userData.mineZ || 0;
+      const dx = mx - e.position.x, dz = mz - e.position.z;
+      const dist = Math.sqrt(dx*dx + dz*dz);
+      if (dist > 8) { e.position.x += (dx/dist)*.05; e.position.z += (dz/dist)*.05; }
+      // Attack nearby player units
+      let tgt = null, md = 4;
+      S.units.forEach(u => { const d = e.position.distanceTo(u.position); if (d < md && u.userData.hp > 0) { md = d; tgt = u; } });
+      if (tgt && time - (e.userData.lastAttack || 0) > 1000) {
+        e.userData.lastAttack = time;
+        tgt.userData.hp -= e.userData.dmg;
+        if (tgt.userData.hp <= 0) { scene.remove(tgt); S.units.splice(S.units.indexOf(tgt), 1); }
+      }
+      e.position.y = 0;
+    }
+  });
 
   // Crystal animation
   crystal.children.forEach(ch => {
