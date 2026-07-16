@@ -50,6 +50,7 @@ canvas{display:block;width:100vw;height:100vh}
     <div class="r">💎 水晶: <span id="cry">2000/2000</span></div>
     <div class="r">⛏️ 矿区: <span id="mines">0/3</span></div>
     <div class="r" style="color:#f44;">👹 母巢: <span id="hive" style="color:#f44;">5000/5000</span></div>
+    <div class="r" style="color:#f88;">🧪 巢穴: <span id="hivebio" style="color:#f88;">0</span>/100</div>
     <div id="place-panel">
       <div class="t">⚔ 点按钮选兵种，再点地图放置</div>
       <button id="bt-drone" class="sel" onclick="pick('drone')">🟢 工蜂 (10)</button>
@@ -117,7 +118,10 @@ const S = {
   mineIncomeTimer: 0,
   hiveHP: 5000,
   hiveMaxHP: 5000,
-  hivePhase: 0,   // 0=none, 1=75%, 2=50%, 3=25%, 4=10%
+  hivePhase: 0,
+  hiveLastHP: 5000,
+  hiveBiomass: 0,
+  hiveGrowthTimer: 0,
   won: false
 };
 
@@ -844,6 +848,36 @@ function loop(time) {
     }});
     msg('母巢进入第'+lvl+'阶段! 守卫增援!', '#ff0000');
   }
+  // Auto-spawn defenders when taking damage
+  const dmgTaken = S.hiveLastHP - S.hiveHP;
+  if (dmgTaken > 20) {
+    const spawnCount = Math.min(3, Math.floor(dmgTaken / 50) + 1);
+    for (let i = 0; i < spawnCount; i++) {
+      const st = ['basic','basic','tank','fast'][Math.floor(Math.random()*4)];
+      const g = spawnEnemy(st);
+      g.position.set(hive.position.x+(Math.random()-.5)*15, 0, hive.position.z+(Math.random()-.5)*10+10);
+      g.userData.hiveGuard = true;
+    }
+  }
+  S.hiveLastHP = S.hiveHP;
+
+  // Hive biomass generation (grows over time)
+  S.hiveGrowthTimer += dt;
+  if (S.hiveGrowthTimer >= 1) {
+    S.hiveGrowthTimer -= 1;
+    const rate = 1 + S.waveNum * 0.5;
+    S.hiveBiomass += rate;
+    if (S.hiveBiomass >= 100) {
+      S.hiveBiomass -= 100;
+      const st = S.waveNum >= 5 ? 'boss' : S.waveNum >= 3 ? 'tank' : 'basic';
+      const g = spawnEnemy(st);
+      g.position.set(hive.position.x+(Math.random()-.5)*15, 0, hive.position.z+(Math.random()-.5)*10+15);
+      g.userData.hiveGuard = true;
+      msg('母巢孵化: '+st+'!', '#ff6666');
+    }
+  }
+  // Display hive biomass in UI
+  document.getElementById('hivebio').textContent = Math.floor(S.hiveBiomass);
   // Hive core color
   const hcore = hive.children[1];
   if (hcore && hcore.material) hcore.material.color.set(hpct>.5?0xff0000:hpct>.25?0xff4400:0xff0000);
