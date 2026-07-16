@@ -506,7 +506,13 @@ function toggleMode() {
   }
 }
 
-// ---- Squad System ----
+
+function processKill(u,n){
+  S.biomass+=30; S.ate++; u.userData.kills++;
+  if(u.userData.kills%5===0)msg(u.userData.type+' 击杀: '+u.userData.kills+'!','#ffd700');
+  scene.remove(n); S.enemies.splice(S.enemies.indexOf(n),1);
+}
+function handleKill(u,n){ processKill(u,n); }// ---- Squad System ----
 let squads = [];
 function createSquad() {
   const sq = {units:[], id:Date.now()+Math.random()};
@@ -555,14 +561,13 @@ function createSquad() {
 
 function launchWave() {
   const now = Date.now();
-  const cooldown = S.waveNum < 3 ? 35000 : S.waveNum < 5 ? 25000 : 20000;
+  const cooldown = S.waveNum < 2 ? 25000 : S.waveNum < 4 ? 22000 : 18000;
   if (now - S.lastWave < cooldown && S.waveNum > 0) return;
   S.lastWave = now;
   S.waveNum++;
   msg('第 '+S.waveNum+' 波来袭!', '#f00');
 
-  // Squads per wave: 2→3→4→5 (starts small)
-  const squadCount = S.waveNum <= 1 ? 2 : S.waveNum <= 3 ? 3 : S.waveNum <= 5 ? 4 : 5;
+  const squadCount = S.waveNum <= 1 ? 3 : S.waveNum <= 3 ? 4 : 5;
 
   for (let i=0;i<squadCount;i++) setTimeout(() => {
     const sq = createSquad();
@@ -601,14 +606,14 @@ function createMine(x, z) {
     g.add(c);
   }
   g.position.set(x, 0, z);
-  g.userData = { captured: false, biomass: 50, maxBiomass: 200, growthRate: 2, guardTimer: 0, guardInterval: 45, collectTimer: 0, collectInterval: 8, guardLevel: 1 };
+  g.userData = { captured: false, biomass: 50, maxBiomass: 200, growthRate: 3, guardTimer: 0, guardInterval: 30, collectTimer: 0, collectInterval: 8, guardLevel: 1 };
   scene.add(g);
   S.mines.push(g);
-  for (let i = 0; i < 3; i++) {
+  for (let i = 0; i < 5; i++) {
     const guard = spawnEnemy('tank');
     guard.position.set(x + (Math.random() - .5) * 8, 0, z + (Math.random() - .5) * 8);
     guard.userData.mineGuard = true; guard.userData.mineX = x; guard.userData.mineZ = z;
-    guard.userData.hp = 600; guard.userData.maxHp = 600; guard.userData.dmg = 8;
+    guard.userData.hp = 800; guard.userData.maxHp = 800; guard.userData.dmg = 10;
   }
 }
 
