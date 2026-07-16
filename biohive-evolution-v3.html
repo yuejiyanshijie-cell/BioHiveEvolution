@@ -175,14 +175,10 @@ C.addEventListener('mousemove', e => {
   }
 });
 
+
+// Observer mode: click to lock pointer
 C.addEventListener('click', e => {
-  if (!S.started) return;
-  if (S.mode === 'observer') {
-    C.requestPointerLock();
-  }
-  if (S.mode === 'god') {
-    placeUnit();
-  }
+  if (S.mode === 'observer' && S.started) C.requestPointerLock();
 });
 
 C.addEventListener('mousedown', e => {
@@ -311,25 +307,115 @@ function spawnEnemy(type) {
   return g;
 }
 
-// ---- Units ----
-function spawnUnit(type, x, z) {
-  const cost = {drone:10,warrior:25,hydralisk:50}[type];
+// ---- Units (46亿重奏 进化树系统） ----
+const EVO = {
+  drone: [
+    {name:'工蜂', hp:200, dmg:6, spd:.08, cost:10, color:0x00ff88, size:.4, req:0},
+    {name:'采集者', hp:320, dmg:9, spd:.12, cost:20, color:0x00ffaa, size:.55, req:5, skill:'疾速采集'},
+    {name:'收割者', hp:520, dmg:15, spd:.15, cost:45, color:0x00ffcc, size:.75, req:15, skill:'范围吸收'}
+  ],
+  warrior: [
+    {name:'战士', hp:400, dmg:16, spd:.08, cost:25, color:0x00cc00, size:.6, req:0},
+    {name:'狂战士', hp:680, dmg:28, spd:.09, cost:45, color:0xff6600, size:.8, req:5, skill:'嗜血'},
+    {name:'主宰', hp:1050, dmg:45, spd:.10, cost:80, color:0xff2200, size:1.1, req:15, skill:'裂地斩'}
+  ],
+  hydralisk: [
+    {name:'远程', hp:320, dmg:22, spd:.08, cost:50, color:0x00ff00, size:.8, req:0},
+    {name:'长枪', hp:520, dmg:35, spd:.09, cost:70, color:0x44ff44, size:1.0, req:5, skill:'毒液弹'},
+    {name:'毁灭者', hp:850, dmg:55, spd:.10, cost:110, color:0xaaff44, size:1.3, req:15, skill:'灭世射线'}
+  ]
+};
+
+function spawnUnit(type, x, z, tier) {
+  tier = tier || 0;
+  const data = EVO[type][tier];
+  const cost = data.cost;
   if (S.biomass < cost) { msg('生物质不足'); return; }
   S.biomass -= cost;
 
   const g = new THREE.Group();
-  const sizes = {drone:[0x00ff88,.4],warrior:[0x00cc00,.6],hydralisk:[0x00ff00,.8]};
-  const [clr,sz] = sizes[type];
-  const b = new THREE.Mesh(new THREE.SphereGeometry(sz,8,6), new THREE.MeshStandardMaterial({color:clr}));
-  b.position.y = sz; b.castShadow = true; g.add(b);
+  const b = new THREE.Mesh(new THREE.SphereGeometry(data.size, 8, 6), new THREE.MeshStandardMaterial({color:data.color}));
+  b.position.y = data.size; b.castShadow = true; g.add(b);
+
+  // Tier indicator ring
+  if (tier >= 1) {
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(data.size+.15,.08,6,16), new THREE.MeshBasicMaterial({color:0xffd700}));
+    ring.rotation.x = Math.PI/2; g.add(ring);
+  }
+  if (tier >= 2) {
+    const ring2 = new THREE.Mesh(new THREE.TorusGeometry(data.size+.3,.06,6,16), new THREE.MeshBasicMaterial({color:0xff0000}));
+    ring2.rotation.x = Math.PI/3; g.add(ring2);
+  }
 
   g.position.set(x,0,z);
-  const hp = {drone:200,warrior:400,hydralisk:320}[type];
-  const dmg = {drone:6,warrior:16,hydralisk:22}[type];
-  g.userData = {type,hp,maxHp:hp,dmg,spd:.08,lastAttack:0};
+  g.userData = {type, tier, hp:data.hp, maxHp:data.hp, dmg:data.dmg, spd:data.spd, kills:0, dna:0, lastAttack:0, skill:data.skill||''};
   scene.add(g);
   S.units.push(g);
 }
+
+// ---- Evolution ----
+function evolveUnit(unit) {
+  const type = unit.userData.type;
+  const tier = unit.userData.tier;
+  if (tier >= 2) { msg('已达最高阶!'); return; }
+  const next = EVO[type][tier+1];
+  if (!next) return;
+  if (unit.userData.kills < next.req) { msg('需要 '+next.req+' 击杀! (当前:'+unit.userData.kills+')'); return; }
+  if (S.biomass < next.cost) { msg('需要 '+next.cost+' 生物质!'); return; }
+  S.biomass -= next.cost;
+
+  // Update stats
+  unit.userData.tier = tier + 1;
+  unit.userData.hp = next.hp; unit.userData.maxHp = next.hp;
+  unit.userData.dmg = next.dmg; unit.userData.spd = next.spd;
+  unit.userData.skill = next.skill || '';
+
+  // Update visual
+  const body = unit.children[0];
+  if (body && body.material) body.material.color.set(next.color);
+  body.scale.setScalar(next.size / EVO[type][tier].size);
+
+  // Add tier ring
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(next.size+.15,.08,6,16), new THREE.MeshBasicMaterial({color:tier+1===2?0xffd700:0xff0000}));
+  ring.rotation.x = Math.PI/2;
+  unit.add(ring);
+
+  // Particles burst
+  for (let i=0;i<20;i++) {
+    const p=new THREE.Mesh(new THREE.SphereGeometry(.1,3,3), new THREE.MeshBasicMaterial({color:0xffd700}));
+    p.position.copy(unit.position); p.position.y+=1;
+    p.userData={life:1,vx:(Math.random()-.5)*5,vy:2+Math.random()*3,vz:(Math.random()-.5)*5};
+    scene.add(p); setTimeout(()=>scene.remove(p),1000);
+    const a = ()=>{ p.position.x+=p.userData.vx*.016; p.position.y+=p.userData.vy*.016; p.position.z+=p.userData.vz*.016; p.userData.vy-=.1; p.userData.life-=.016; if(p.userData.life>0) requestAnimationFrame(a); else scene.remove(p); };
+    requestAnimationFrame(a);
+  }
+
+  msg(next.name+' 进化完成! 技能: '+(next.skill||'无'), '#ffd700');
+  updateUI();
+}
+
+// Evolution click: in god mode, click near existing unit to evolve it
+C.addEventListener('click', function evoClick(e) {
+  if (S.mode !== 'god' || !S.started) return;
+  if (e.shiftKey) return; // Shift+click for batch, regular click for evolve
+  // Check if clicking near existing unit
+  let target = null, minD = 3;
+  S.units.forEach(u => {
+    const d = Math.sqrt((cursorPos.x-u.position.x)**2 + (cursorPos.z-u.position.z)**2);
+    if (d < minD) { minD = d; target = u; }
+  });
+  if (target) {
+    evolveUnit(target);
+    e.stopPropagation();
+    e.preventDefault();
+    return;
+  }
+  // No unit nearby → place new unit
+  placeUnit();
+});
+
+// Remove old click handler that always places
+// (evoClick above handles both cases)
 
 // ---- UI ----
 function msg(text, color) {
@@ -368,7 +454,7 @@ function placeUnit() {
 
 function batchPlace(start, end) {
   const cols=4, rows=3, total=cols*rows;
-  const cost = {drone:10,warrior:25,hydralisk:50}[S.placeType] * total;
+  const cost = EVO[S.placeType][0].cost * total;
   if (S.biomass < cost) { msg('需要 '+cost+' 生物质'); return; }
   const minX=Math.min(start.x,end.x), maxX=Math.max(start.x,end.x);
   const minZ=Math.min(start.z,end.z), maxZ=Math.max(start.z,end.z);
@@ -593,7 +679,7 @@ function loop(time) {
         if (nd<3 && time-(u.userData.lastAttack||0)>800) {
           u.userData.lastAttack=time;
           n.userData.hp-=u.userData.dmg;
-          if (n.userData.hp<=0) { S.biomass+=30; S.ate++; scene.remove(n); S.enemies.splice(S.enemies.indexOf(n),1); }
+          if (n.userData.hp<=0) { S.biomass+=30; S.ate++; u.userData.kills++; if(u.userData.kills%5===0)msg(u.userData.type+' 击杀: '+u.userData.kills+'! 可进化', '#ffd700'); scene.remove(n); S.enemies.splice(S.enemies.indexOf(n),1); }
         }
       }
     }
