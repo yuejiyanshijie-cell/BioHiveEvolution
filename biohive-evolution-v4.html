@@ -706,6 +706,12 @@ function fireProjectile(u,dir,tgt,isHive){const p=new THREE.Mesh(new THREE.Spher
   // Hive rings animation
   hive.children.forEach(ch => { if (ch.userData && ch.userData.spd>=0) { if(ch.userData.axis==='x')ch.rotation.x+=.01*ch.userData.spd; else ch.rotation.z+=.01*ch.userData.spd; } });
 
+  // Unit AI
+  S.units.forEach(u=>{const tp=u.userData.type,s=u.userData.spd*dt*60;if(tp===0)harvesterAI(u,s,dt);else combatAI(u,s,Date.now());u.position.y=0});
+  if(S.projectiles)S.projectiles=S.projectiles.filter(p=>{p.position.x+=p.userData.vx*dt;p.position.z+=p.userData.vz*dt;p.userData.life-=dt;if(p.userData.life<=0){scene.remove(p);return false}const t=p.userData.target;if(t&&p.position.distanceTo(t.position)<1.5){if(p.userData.isHive){S.hiveHP-=p.userData.dmg;if(S.hiveHP<=0){S.hiveHP=0;S.won=true;gameWin()}}else{t.userData.hp-=p.userData.dmg;if(t.userData.hp<=0){S.biomass+=30;S.ate++;p.userData.owner.userData.kills++;scene.remove(t);S.enemies.splice(S.enemies.indexOf(t),1)}}scene.remove(p);return false}return true});
+  // Wave timer
+  if(S.safety<=0){S.waveTimer+=dt;if(S.waveTimer>=18){S.waveTimer=0;if(squads.length<10)launchWave()}}
+
   // Crystal animation
   crystal.children.forEach(ch => {
     if (ch.userData && ch.userData.spd >= 0) {
