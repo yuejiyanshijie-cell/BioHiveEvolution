@@ -196,7 +196,8 @@ C.addEventListener('mousemove', e => {
 
 // Observer mode: click to lock pointer
 C.addEventListener('click', e => {
-  if (S.mode === 'observer' && S.started) C.requestPointerLock();
+  if (S.mode === 'observer' && S.started) { C.requestPointerLock(); return; }
+  if (S.mode === 'god' && S.started) { placeUnit(); }
 });
 
 C.addEventListener('mousedown', e => {
@@ -800,8 +801,22 @@ function buildHive() {
 }
 hive = buildHive();
 
-// Ore fields
-for(let i=0;i<16;i++){const g=new THREE.Group();const x=(Math.random()-.5)*420,z=(Math.random()-.5)*420;for(let j=0;j<5;j++){const o=new THREE.Mesh(new THREE.OctahedronGeometry(.3+j*.15,1),new THREE.MeshStandardMaterial({color:0xffaa00,emissive:0x331100,emissiveIntensity:.3}));o.position.set(x+(j-2)*1.2,.25,z+Math.sin(j)*.6);g.add(o)}g.position.set(x,0,z);g.userData={amount:200+Math.random()*300};scene.add(g);S.ores.push(g)}
+// Ore fields (gold crystals on ground)
+for(let i=0;i<16;i++){
+  const g=new THREE.Group();
+  const x=(Math.random()-.5)*420,z=(Math.random()-.5)*420;
+  // Ground disc
+  const disc=new THREE.Mesh(new THREE.CylinderGeometry(2,.1,.05,16),new THREE.MeshStandardMaterial({color:0x332200,roughness:.8}));
+  disc.position.y=.02;g.add(disc);
+  // Glowing crystals
+  for(let j=0;j<5;j++){
+    const h=.4+.7*Math.random(),sz=.12+.08*j;
+    const o=new THREE.Mesh(new THREE.ConeGeometry(sz,h,6,1),new THREE.MeshStandardMaterial({color:0xffcc00,emissive:0x332200,emissiveIntensity:.4,roughness:.2,metalness:.7}));
+    o.position.set((j-2)*.7,.05+h/2,Math.sin(j)*.5);o.castShadow=true;g.add(o);
+  }
+  g.position.set(x,0,z);g.userData={amount:200+Math.random()*300};
+  scene.add(g);S.ores.push(g);
+}
 
 // Cursor ring
 (function(){
