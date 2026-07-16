@@ -52,10 +52,10 @@ canvas{display:block;width:100vw;height:100vh}
     <div class="r" style="color:#f44;">👹 母巢: <span id="hive" style="color:#f44;">5000/5000</span></div>
     <div id="place-panel">
       <div class="t">⚔ 点按钮选兵种，再点地图放置</div>
-      <button id="bt-drone" class="sel" onclick="pick('drone')">🟢 工蜂 (5)</button>
-      <button id="bt-warrior" onclick="pick('warrior')">🗡️ 战士 (20)</button>
-      <button id="bt-hydralisk" onclick="pick('hydralisk')">🏹 远程 (40)</button>
-      <button id="bt-sniper" onclick="pick('sniper')">🔫 狙击 (80)</button>
+      <button id="s0" class="sel" onclick="pick(0)">⛏️ 采集车 (5)</button>
+      <button id="s1" onclick="pick(1)">🔫 步兵 (20)</button>
+      <button id="s2" onclick="pick(2)">🚀 火箭兵 (40)</button>
+      <button id="s3" onclick="pick(3)">🎯 狙击手 (80)</button>
     </div>
   </div>
 </div>
@@ -194,7 +194,6 @@ C.addEventListener('mousemove', e => {
   }
 });
 
-
 // Observer mode: click to lock pointer
 C.addEventListener('click', e => {
   if (S.mode === 'observer' && S.started) C.requestPointerLock();
@@ -326,121 +325,42 @@ function spawnEnemy(type) {
   return g;
 }
 
-// ---- Units (46亿重奏 进化树系统） ----
-const EVO = {
-  drone: [
-    {name:'工蜂', hp:200, dmg:6, spd:.08, cost:5, color:0x00ff88, size:.4, req:0},
-    {name:'采集者', hp:320, dmg:9, spd:.12, cost:10, color:0x00ffaa, size:.55, req:5, skill:'疾速采集'},
-    {name:'收割者', hp:520, dmg:15, spd:.15, cost:25, color:0x00ffcc, size:.75, req:15, skill:'范围吸收'}
-  ],
-  warrior: [
-    {name:'战士', hp:400, dmg:16, spd:.08, cost:20, color:0x00cc00, size:.6, req:0},
-    {name:'狂战士', hp:680, dmg:28, spd:.09, cost:35, color:0xff6600, size:.8, req:5, skill:'嗜血'},
-    {name:'主宰', hp:1050, dmg:45, spd:.10, cost:60, color:0xff2200, size:1.1, req:15, skill:'裂地斩'}
-  ],
-  hydralisk: [
-    {name:'远程', hp:320, dmg:22, spd:.08, cost:40, color:0x00ff00, size:.8, req:0},
-    {name:'长枪', hp:520, dmg:35, spd:.09, cost:55, color:0x44ff44, size:1.0, req:5, skill:'毒液弹'},
-    {name:'毁灭者', hp:850, dmg:55, spd:.10, cost:90, color:0xaaff44, size:1.3, req:15, skill:'灭世射线'}
-  ],
-  sniper: [
-    {name:'远程兵', hp:150, dmg:32, spd:.07, cost:80, color:0xff4400, size:.7, req:0},
-    {name:'狙击手', hp:250, dmg:50, spd:.08, cost:100, color:0xff6622, size:.9, req:7, skill:'穿甲弹'},
-    {name:'歼灭者', hp:400, dmg:80, spd:.09, cost:150, color:0xff8844, size:1.2, req:20, skill:'毁灭狙击'}
-  ]
-};
+// ---- Units (Red Alert style) ----
+const U = [
+  {n:'采集车',hp:300,dmg:0,spd:.14,cost:5,color:0xffaa00,size:.5,tp:'harv'},
+  {n:'步兵',hp:400,dmg:14,spd:.09,cost:20,color:0x00cc00,size:.65,tp:'inf'},
+  {n:'火箭兵',hp:280,dmg:32,spd:.07,cost:40,color:0xff2222,size:.8,tp:'rocket'},
+  {n:'狙击手',hp:150,dmg:60,spd:.08,cost:80,color:0xcc44ff,size:.6,tp:'sniper'}
+];
 
-function spawnUnit(type, x, z, tier) {
-  tier = tier || 0;
-  const data = EVO[type][tier];
-  const cost = data.cost;
-  if (S.biomass < cost) { msg('生物质不足'); return; }
-  S.biomass -= cost;
-
-  const g = new THREE.Group();
-  const b = new THREE.Mesh(new THREE.SphereGeometry(data.size, 8, 6), new THREE.MeshStandardMaterial({color:data.color}));
-  b.position.y = data.size; b.castShadow = true; g.add(b);
-
-  // Tier indicator ring
-  if (tier >= 1) {
-    const ring = new THREE.Mesh(new THREE.TorusGeometry(data.size+.15,.08,6,16), new THREE.MeshBasicMaterial({color:0xffd700}));
-    ring.rotation.x = Math.PI/2; g.add(ring);
+function spawnUnit(type, x, z) {
+  const d=U[type];
+  if(S.biomass<d.cost){msg('资金不足');return;}
+  S.biomass-=d.cost;
+  const g=new THREE.Group();
+  // Distinct shapes per type
+  if(type===0){// Harvester - tank shape
+    const b=new THREE.Mesh(new THREE.BoxGeometry(.7,.4,1),new THREE.MeshStandardMaterial({color:d.color}));b.position.y=.35;b.castShadow=true;g.add(b);
+    const c=new THREE.Mesh(new THREE.CylinderGeometry(.15,.15,.25,6),new THREE.MeshStandardMaterial({color:0xaaaa00}));c.position.y=.6;g.add(c);
+  }else if(type===1){// Infantry
+    const b=new THREE.Mesh(new THREE.CylinderGeometry(.3,.35,1.2,8),new THREE.MeshStandardMaterial({color:d.color}));b.position.y=.6;b.castShadow=true;g.add(b);
+    const h=new THREE.Mesh(new THREE.SphereGeometry(.28,6,4),new THREE.MeshStandardMaterial({color:0xe8c4a0}));h.position.y=1.35;g.add(h);
+    const gun=new THREE.Mesh(new THREE.CylinderGeometry(.04,.04,.5,6),new THREE.MeshStandardMaterial({color:0x333}));gun.position.set(.35,.9,0);gun.rotation.z=-Math.PI/4;g.add(gun);
+  }else if(type===2){// Rocket soldier
+    const b=new THREE.Mesh(new THREE.CylinderGeometry(.35,.45,1.3,8),new THREE.MeshStandardMaterial({color:d.color}));b.position.y=.65;b.castShadow=true;g.add(b);
+    const h=new THREE.Mesh(new THREE.SphereGeometry(.32,6,4),new THREE.MeshStandardMaterial({color:0xe8c4a0}));h.position.y=1.45;g.add(h);
+    const rl=new THREE.Mesh(new THREE.CylinderGeometry(.06,.1,.7,6),new THREE.MeshStandardMaterial({color:0x444}));rl.position.set(.5,1,.3);rl.rotation.z=-Math.PI/3;g.add(rl);
+  }else{// Sniper
+    const b=new THREE.Mesh(new THREE.CylinderGeometry(.25,.3,1.4,8),new THREE.MeshStandardMaterial({color:d.color}));b.position.y=.7;b.castShadow=true;g.add(b);
+    const h=new THREE.Mesh(new THREE.SphereGeometry(.28,6,4),new THREE.MeshStandardMaterial({color:0xe8c4a0}));h.position.y=1.55;g.add(h);
+    const barrel=new THREE.Mesh(new THREE.CylinderGeometry(.025,.035,.9,6),new THREE.MeshStandardMaterial({color:0x222}));barrel.position.set(.3,1.3,0);barrel.rotation.z=-Math.PI/3;g.add(barrel);
   }
-  if (tier >= 2) {
-    const ring2 = new THREE.Mesh(new THREE.TorusGeometry(data.size+.3,.06,6,16), new THREE.MeshBasicMaterial({color:0xff0000}));
-    ring2.rotation.x = Math.PI/3; g.add(ring2);
-  }
-
   g.position.set(x,0,z);
-  g.userData = {type, tier, hp:data.hp, maxHp:data.hp, dmg:data.dmg, spd:data.spd, kills:0, dna:0, lastAttack:0, skill:data.skill||''};
-  scene.add(g);
-  S.units.push(g);
+  g.userData={type,hp:d.hp,maxHp:d.hp,dmg:d.dmg,spd:d.spd,lastAttack:0,kills:0,mining:false,miningTimer:0,hasOre:false};
+  scene.add(g);S.units.push(g);
 }
 
 // ---- Evolution ----
-function evolveUnit(unit) {
-  const type = unit.userData.type;
-  const tier = unit.userData.tier;
-  if (tier >= 2) { msg('已达最高阶!'); return; }
-  const next = EVO[type][tier+1];
-  if (!next) return;
-  if (unit.userData.kills < next.req) { msg('需要 '+next.req+' 击杀! (当前:'+unit.userData.kills+')'); return; }
-  if (S.biomass < next.cost) { msg('需要 '+next.cost+' 生物质!'); return; }
-  S.biomass -= next.cost;
-
-  // Update stats
-  unit.userData.tier = tier + 1;
-  unit.userData.hp = next.hp; unit.userData.maxHp = next.hp;
-  unit.userData.dmg = next.dmg; unit.userData.spd = next.spd;
-  unit.userData.skill = next.skill || '';
-
-  // Update visual
-  const body = unit.children[0];
-  if (body && body.material) body.material.color.set(next.color);
-  body.scale.setScalar(next.size / EVO[type][tier].size);
-
-  // Add tier ring
-  const ring = new THREE.Mesh(new THREE.TorusGeometry(next.size+.15,.08,6,16), new THREE.MeshBasicMaterial({color:tier+1===2?0xffd700:0xff0000}));
-  ring.rotation.x = Math.PI/2;
-  unit.add(ring);
-
-  // Particles burst
-  for (let i=0;i<20;i++) {
-    const p=new THREE.Mesh(new THREE.SphereGeometry(.1,3,3), new THREE.MeshBasicMaterial({color:0xffd700}));
-    p.position.copy(unit.position); p.position.y+=1;
-    p.userData={life:1,vx:(Math.random()-.5)*5,vy:2+Math.random()*3,vz:(Math.random()-.5)*5};
-    scene.add(p); setTimeout(()=>scene.remove(p),1000);
-    const a = ()=>{ p.position.x+=p.userData.vx*.016; p.position.y+=p.userData.vy*.016; p.position.z+=p.userData.vz*.016; p.userData.vy-=.1; p.userData.life-=.016; if(p.userData.life>0) requestAnimationFrame(a); else scene.remove(p); };
-    requestAnimationFrame(a);
-  }
-
-  msg(next.name+' 进化完成! 技能: '+(next.skill||'无'), '#ffd700');
-  updateUI();
-}
-
-// Evolution click: in god mode, click near existing unit to evolve it
-C.addEventListener('click', function evoClick(e) {
-  if (S.mode !== 'god' || !S.started) return;
-  if (e.shiftKey) return; // Shift+click for batch, regular click for evolve
-  // Check if clicking near existing unit
-  let target = null, minD = 3;
-  S.units.forEach(u => {
-    const d = Math.sqrt((cursorPos.x-u.position.x)**2 + (cursorPos.z-u.position.z)**2);
-    if (d < minD) { minD = d; target = u; }
-  });
-  if (target) {
-    evolveUnit(target);
-    e.stopPropagation();
-    e.preventDefault();
-    return;
-  }
-  // No unit nearby → place new unit
-  placeUnit();
-});
-
-// Remove old click handler that always places
-// (evoClick above handles both cases)
-
 // ---- UI ----
 function msg(text, color) {
   const m = document.getElementById('msg');
@@ -461,13 +381,10 @@ function updateUI() {
 // ---- Place Unit ----
 function pick(type) {
   S.placeType = type;
-  ['drone','warrior','hydralisk','sniper'].forEach(t => {
-    const b = document.getElementById('bt-'+t);
-    if (b) { b.className = t===type ? 'sel' : ''; }
-  });
-  const colors = {drone:0x00ff88, warrior:0x00cc00, hydralisk:0x00ff00, sniper:0xff4400};
-  if (cursorMesh) cursorMesh.material.color.set(colors[type]);
-  msg('选中: '+type+' | 点击地图放置 | Shift框选批量');
+  for(let i=0;i<4;i++){const b=document.getElementById('s'+i);if(b)b.className=i===type?'sel':'';}
+  const colors = [0xffaa00,0x00cc00,0xff2222,0xcc44ff];
+  if(cursorMesh)cursorMesh.material.color.set(colors[type]);
+  msg('选中: '+U[type].n+' | 点击放置 | Shift框选','#ffd700');
 }
 
 function placeUnit() {
@@ -479,15 +396,15 @@ function placeUnit() {
 
 function batchPlace(start, end) {
   const cols=4, rows=3, total=cols*rows;
-  const cost = EVO[S.placeType][0].cost * total;
-  if (S.biomass < cost) { msg('需要 '+cost+' 生物质'); return; }
+  const cost = U[S.placeType].cost * total;
+  if (S.biomass < cost) { msg('需要 '+cost+' 资金'); return; }
   const minX=Math.min(start.x,end.x), maxX=Math.max(start.x,end.x);
   const minZ=Math.min(start.z,end.z), maxZ=Math.max(start.z,end.z);
   const sx=(maxX-minX)/(cols-1), sz=(maxZ-minZ)/(rows-1);
   for (let r=0;r<rows;r++) for (let c=0;c<cols;c++)
     spawnUnit(S.placeType, minX+c*sx, minZ+r*sz);
   updateUI();
-  msg('批量放置 '+total+' 个 '+S.placeType+'!');
+  msg('批量放置 '+total+' 个 '+U[S.placeType].n+'!');
 }
 
 // ---- Mode Toggle ----
@@ -506,7 +423,6 @@ function toggleMode() {
     C.requestPointerLock();
   }
 }
-
 
 function processKill(u,n){
   S.biomass+=30; S.ate++; u.userData.kills++;
@@ -759,105 +675,18 @@ function loop(time) {
   });
   squads = squads.filter(s => s.units.some(u => u.userData.hp > 0));
 
-  // Unit AI
-  S.units.forEach(u => {
-    const tp = u.userData.type;
-    const s = u.userData.spd * dt * 60;
-    if (tp === 'drone') {
-      let n=null,nd=Infinity;
-      consumables.forEach(c => {const d=u.position.distanceTo(c.position);if(d<nd){nd=d;n=c}});
-      if (n) {
-        const dir=new THREE.Vector3().subVectors(n.position,u.position).normalize();
-        u.position.x+=dir.x*s; u.position.z+=dir.z*s;
-        if (nd<2) { S.biomass+=n.userData.biomass; S.ate++; scene.remove(n); consumables.splice(consumables.indexOf(n),1); setTimeout(spawnFood,6000); }
-      }
-    } else {
-      let n=null,nd=50;
-      S.enemies.forEach(e => {const d=u.position.distanceTo(e.position);if(d<nd&&e.userData.hp>0){nd=d;n=e}});
-      if (n) {
-        const dir=new THREE.Vector3().subVectors(n.position,u.position).normalize();
-        u.position.x+=dir.x*s; u.position.z+=dir.z*s;
-        if (nd<3 && time-(u.userData.lastAttack||0)>800) {
-          u.userData.lastAttack=time;
-          n.userData.hp-=u.userData.dmg;
-          if (n.userData.hp<=0) { S.biomass+=30; S.ate++; u.userData.kills++; if(u.userData.kills%5===0)msg(u.userData.type+' 击杀: '+u.userData.kills+'! 可进化', '#ffd700'); scene.remove(n); S.enemies.splice(S.enemies.indexOf(n),1); }
-        }
-      } else {
-        // No enemies nearby — attack hive
-        const dh = u.position.distanceTo(hive.position);
-        if (dh < 8 && time-(u.userData.lastAttack||0)>500) {
-          u.userData.lastAttack=time;
-          S.hiveHP -= u.userData.dmg;
-          if (S.hiveHP <= 0) { S.hiveHP=0; S.won=true; gameWin(); }
-        } else if (dh < 40) {
-          const dirh = new THREE.Vector3().subVectors(hive.position, u.position).normalize();
-          u.position.x+=dirh.x*s; u.position.z+=dirh.z*s;
-        }
-      }
-    }
-    u.position.y=0;
-  });
+function harvesterAI(u,s,dt){if(u.userData.hasOre){const dc=u.position.distanceTo(crystal.position);if(dc<5){u.userData.hasOre=false;S.biomass+=12}else{const dv=new THREE.Vector3().subVectors(crystal.position,u.position).normalize();u.position.x+=dv.x*s;u.position.z+=dv.z*s}}else{let ne=null,nd=Infinity;S.ores.forEach(o=>{const d=u.position.distanceTo(o.position);if(d<nd){nd=d;ne=o}});if(ne){const dv=new THREE.Vector3().subVectors(ne.position,u.position).normalize();u.position.x+=dv.x*s;u.position.z+=dv.z*s;if(nd<3){u.userData.miningTimer=(u.userData.miningTimer||0)+dt;if(u.userData.miningTimer>2){u.userData.miningTimer=0;u.userData.hasOre=true;ne.userData.amount-=15;if(ne.userData.amount<=0){ne.position.set((Math.random()-.5)*420,0,(Math.random()-.5)*420);ne.userData.amount=200+Math.random()*300}}}}}}
+function combatAI(u,s,now){const isRanged=u.userData.type===2||u.userData.type===3,range=isRanged?(u.userData.type===3?28:20):4;let n=null,nd=50;S.enemies.forEach(e=>{const d=u.position.distanceTo(e.position);if(d<nd&&e.userData.hp>0){nd=d;n=e}});if(n){const dir=new THREE.Vector3().subVectors(n.position,u.position).normalize();if(nd>range+2){u.position.x+=dir.x*s;u.position.z+=dir.z*s}if(nd<range&&Date.now()-(u.userData.lastAttack||0)>800){u.userData.lastAttack=Date.now();if(isRanged)fireProjectile(u,dir,n,false);else{n.userData.hp-=u.userData.dmg;if(n.userData.hp<=0){S.biomass+=30;S.ate++;u.userData.kills++;scene.remove(n);S.enemies.splice(S.enemies.indexOf(n),1)}}}}else{const dh=u.position.distanceTo(hive.position);if(dh<(isRanged?15:8)&&Date.now()-(u.userData.lastAttack||0)>500){u.userData.lastAttack=Date.now();if(isRanged)fireProjectile(u,new THREE.Vector3().subVectors(hive.position,u.position).normalize(),hive,true);else{S.hiveHP-=u.userData.dmg;if(S.hiveHP<=0){S.hiveHP=0;S.won=true;gameWin()}}}else if(dh<40&&!isRanged){const dhv=new THREE.Vector3().subVectors(hive.position,u.position).normalize();u.position.x+=dhv.x*s;u.position.z+=dhv.z*s}}}
+function fireProjectile(u,dir,tgt,isHive){const p=new THREE.Mesh(new THREE.SphereGeometry(.12,4,4),new THREE.MeshBasicMaterial({color:isHive?0xff0000:u.userData.type===3?0xcc44ff:0xff2222}));p.position.set(u.position.x,1,u.position.z);p.userData={dmg:u.userData.dmg,owner:u,target:tgt,isHive:isHive,vx:dir.x*(isHive?12:16),vz:dir.z*(isHive?12:16),life:2};scene.add(p);if(!S.projectiles)S.projectiles=[];S.projectiles.push(p)}
 
-  // Wave timer
-  if (S.safety <= 0) {
-    S.waveTimer += dt;
-    if (S.waveTimer >= 20) { S.waveTimer = 0; if (squads.length < 10) launchWave(); }
-  }
-
-  // Update mines + capture check
-  updateMines(dt);
-  S.mines.forEach(m => {
-    const d = m.userData;
-    if (!d.captured) {
-      const guards = S.enemies.filter(e => e.userData.mineGuard && Math.abs(e.position.x - m.position.x) < 8 && Math.abs(e.position.z - m.position.z) < 8 && e.userData.hp > 0);
-      if (guards.length === 0) { d.captured = true; msg('矿区已占领! +'+Math.floor(d.biomass)+'生物质/波', '#ffd700'); }
-    }
-  });
-  updateMineUI();
-
-  // Mine guards: stay near mine, don't join squads
-  S.enemies.forEach(e => {
-    if (e.userData.mineGuard && e.userData.hp > 0) {
-      const mx = e.userData.mineX || 0, mz = e.userData.mineZ || 0;
-      const dx = mx - e.position.x, dz = mz - e.position.z;
-      const dist = Math.sqrt(dx*dx + dz*dz);
-      if (dist > 8) { e.position.x += (dx/dist)*.05; e.position.z += (dz/dist)*.05; }
-      // Attack nearby player units
-      let tgt = null, md = 4;
-      S.units.forEach(u => { const d = e.position.distanceTo(u.position); if (d < md && u.userData.hp > 0) { md = d; tgt = u; } });
-      if (tgt && time - (e.userData.lastAttack || 0) > 1000) {
-        e.userData.lastAttack = time;
-        tgt.userData.hp -= e.userData.dmg;
-        if (tgt.userData.hp <= 0) { scene.remove(tgt); S.units.splice(S.units.indexOf(tgt), 1); }
-      }
-      e.position.y = 0;
-    }
-  });
-
-  // Hive animations + phase triggers
+  // Hive phase triggers
   const hpct = S.hiveHP / S.hiveMaxHP;
   const prevPhase = S.hivePhase;
   if (hpct <= .1) S.hivePhase = 4;
   else if (hpct <= .25) S.hivePhase = 3;
   else if (hpct <= .5) S.hivePhase = 2;
   else if (hpct <= .75) S.hivePhase = 1;
-  // Phase triggered - spawn defenders
-  if (S.hivePhase > prevPhase) {
-    const lvl = S.hivePhase;
-    const guards = lvl===1?[[3,'tank'],[5,'basic']] :
-                   lvl===2?[[5,'tank'],[8,'basic'],[2,'fast'],[1,'boss']] :
-                   lvl===3?[[8,'tank'],[12,'basic'],[4,'fast'],[2,'boss']] :
-                   [[12,'tank'],[18,'basic'],[6,'fast'],[3,'boss']];
-    guards.forEach(([n,tp]) => { for(let i=0;i<n;i++) {
-      const g = spawnEnemy(tp);
-      g.position.set(hive.position.x+(Math.random()-.5)*20,0,hive.position.z+(Math.random()-.5)*15+15);
-      g.userData.hiveGuard = true;
-      g.userData.hp = Math.floor(g.userData.hp*(1+lvl*.5));
-      g.userData.maxHp = g.userData.hp;
-      g.userData.dmg = Math.floor(g.userData.dmg*(1+lvl*.3));
-    }});
-    msg('母巢进入第'+lvl+'阶段! 守卫增援!', '#ff0000');
-  }
+  if (S.hivePhase > prevPhase) { msg('母巢第'+S.hivePhase+'阶段!','#f00'); }
   // Auto-spawn defenders when taking damage
   const dmgTaken = S.hiveLastHP - S.hiveHP;
   if (dmgTaken > 20) {
