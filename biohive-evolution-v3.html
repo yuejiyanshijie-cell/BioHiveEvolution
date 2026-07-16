@@ -52,10 +52,10 @@ canvas{display:block;width:100vw;height:100vh}
     <div class="r" style="color:#f44;">👹 母巢: <span id="hive" style="color:#f44;">5000/5000</span></div>
     <div id="place-panel">
       <div class="t">⚔ 点按钮选兵种，再点地图放置</div>
-      <button id="bt-drone" class="sel" onclick="pick('drone')">🟢 工蜂 (10)</button>
-      <button id="bt-warrior" onclick="pick('warrior')">🗡️ 战士 (25)</button>
-      <button id="bt-hydralisk" onclick="pick('hydralisk')">🏹 远程 (50)</button>
-      <button id="bt-sniper" onclick="pick('sniper')">🔫 狙击 (100)</button>
+      <button id="bt-drone" class="sel" onclick="pick('drone')">🟢 工蜂 (5)</button>
+      <button id="bt-warrior" onclick="pick('warrior')">🗡️ 战士 (20)</button>
+      <button id="bt-hydralisk" onclick="pick('hydralisk')">🏹 远程 (40)</button>
+      <button id="bt-sniper" onclick="pick('sniper')">🔫 狙击 (80)</button>
     </div>
   </div>
 </div>
@@ -307,10 +307,10 @@ function spawnEnemy(type) {
   const g = new THREE.Group();
   let hp,dmg,spd,clr;
   switch(type) {
-    case 'boss': hp=2400;dmg=14;spd=.04;clr=0x880044;break;
-    case 'tank': hp=700;dmg=7;spd=.04;clr=0x880000;break;
-    case 'fast': hp=220;dmg=6;spd=.07;clr=0xff4400;break;
-    default: hp=450;dmg=6;spd=.05;clr=0xaa0000;
+    case 'boss': hp=1800;dmg=10;spd=.04;clr=0x880044;break;
+    case 'tank': hp=500;dmg=5;spd=.04;clr=0x880000;break;
+    case 'fast': hp=180;dmg=5;spd=.07;clr=0xff4400;break;
+    default: hp=350;dmg=5;spd=.05;clr=0xaa0000;
   }
   const b=new THREE.Mesh(new THREE.ConeGeometry(.6,1.5,6),new THREE.MeshStandardMaterial({color:clr,roughness:.8}));
   b.position.y=.75;b.castShadow=true;g.add(b);
@@ -328,24 +328,24 @@ function spawnEnemy(type) {
 // ---- Units (46亿重奏 进化树系统） ----
 const EVO = {
   drone: [
-    {name:'工蜂', hp:200, dmg:6, spd:.08, cost:10, color:0x00ff88, size:.4, req:0},
-    {name:'采集者', hp:320, dmg:9, spd:.12, cost:20, color:0x00ffaa, size:.55, req:5, skill:'疾速采集'},
-    {name:'收割者', hp:520, dmg:15, spd:.15, cost:45, color:0x00ffcc, size:.75, req:15, skill:'范围吸收'}
+    {name:'工蜂', hp:200, dmg:6, spd:.08, cost:5, color:0x00ff88, size:.4, req:0},
+    {name:'采集者', hp:320, dmg:9, spd:.12, cost:10, color:0x00ffaa, size:.55, req:5, skill:'疾速采集'},
+    {name:'收割者', hp:520, dmg:15, spd:.15, cost:25, color:0x00ffcc, size:.75, req:15, skill:'范围吸收'}
   ],
   warrior: [
-    {name:'战士', hp:400, dmg:16, spd:.08, cost:25, color:0x00cc00, size:.6, req:0},
-    {name:'狂战士', hp:680, dmg:28, spd:.09, cost:45, color:0xff6600, size:.8, req:5, skill:'嗜血'},
-    {name:'主宰', hp:1050, dmg:45, spd:.10, cost:80, color:0xff2200, size:1.1, req:15, skill:'裂地斩'}
+    {name:'战士', hp:400, dmg:16, spd:.08, cost:20, color:0x00cc00, size:.6, req:0},
+    {name:'狂战士', hp:680, dmg:28, spd:.09, cost:35, color:0xff6600, size:.8, req:5, skill:'嗜血'},
+    {name:'主宰', hp:1050, dmg:45, spd:.10, cost:60, color:0xff2200, size:1.1, req:15, skill:'裂地斩'}
   ],
   hydralisk: [
-    {name:'远程', hp:320, dmg:22, spd:.08, cost:50, color:0x00ff00, size:.8, req:0},
-    {name:'长枪', hp:520, dmg:35, spd:.09, cost:70, color:0x44ff44, size:1.0, req:5, skill:'毒液弹'},
-    {name:'毁灭者', hp:850, dmg:55, spd:.10, cost:110, color:0xaaff44, size:1.3, req:15, skill:'灭世射线'}
+    {name:'远程', hp:320, dmg:22, spd:.08, cost:40, color:0x00ff00, size:.8, req:0},
+    {name:'长枪', hp:520, dmg:35, spd:.09, cost:55, color:0x44ff44, size:1.0, req:5, skill:'毒液弹'},
+    {name:'毁灭者', hp:850, dmg:55, spd:.10, cost:90, color:0xaaff44, size:1.3, req:15, skill:'灭世射线'}
   ],
   sniper: [
-    {name:'远程兵', hp:150, dmg:32, spd:.07, cost:100, color:0xff4400, size:.7, req:0},
-    {name:'狙击手', hp:250, dmg:50, spd:.08, cost:130, color:0xff6622, size:.9, req:7, skill:'穿甲弹'},
-    {name:'歼灭者', hp:400, dmg:80, spd:.09, cost:180, color:0xff8844, size:1.2, req:20, skill:'毁灭狙击'}
+    {name:'远程兵', hp:150, dmg:32, spd:.07, cost:80, color:0xff4400, size:.7, req:0},
+    {name:'狙击手', hp:250, dmg:50, spd:.08, cost:100, color:0xff6622, size:.9, req:7, skill:'穿甲弹'},
+    {name:'歼灭者', hp:400, dmg:80, spd:.09, cost:150, color:0xff8844, size:1.2, req:20, skill:'毁灭狙击'}
   ]
 };
 
@@ -510,35 +510,44 @@ function toggleMode() {
 let squads = [];
 function createSquad() {
   const sq = {units:[], id:Date.now()+Math.random()};
-  // Spawn from hive position
   const sx = hive.position.x + (Math.random()-.5)*60;
   const sz = hive.position.z + (Math.random()-.5)*30 + 15;
-
   const sp = 5;
-  const boss = spawnEnemy('boss');
-  boss.position.set(sx, 0, sz);
-  boss.userData.fx = 0; boss.userData.fz = -sp;
-  boss.userData.sid = sq.id;
-  boss.scale.set(2,2,2);
-  sq.units.push(boss);
 
-  for (let r=0;r<4;r++) {
-    const tp = r===0 ? 'tank' : 'basic';
-    for (let c=0;c<5;c++) {
+  // Boss only from wave 4+
+  if (S.waveNum >= 4) {
+    const boss = spawnEnemy('boss');
+    boss.position.set(sx, 0, sz);
+    boss.userData.fx = 0; boss.userData.fz = -sp;
+    boss.userData.sid = sq.id;
+    boss.scale.set(2,2,2);
+    sq.units.push(boss);
+  }
+
+  // Tanks only from wave 2+
+  const frontType = S.waveNum >= 2 ? 'tank' : 'basic';
+  const rowCount = S.waveNum <= 1 ? 2 : S.waveNum <= 3 ? 3 : 4;
+  for (let r=0;r<rowCount;r++) {
+    const tp = r===0 ? frontType : 'basic';
+    const colCount = S.waveNum <= 1 ? 3 : 5;
+    for (let c=0;c<colCount;c++) {
       const e = spawnEnemy(tp);
-      e.position.set(sx+(c-2)*sp, 0, sz+(r+1)*sp);
-      e.userData.fx = (c-2)*sp; e.userData.fz = (r+1)*sp;
+      e.position.set(sx+(c-(colCount-1)/2)*sp, 0, sz+(r+1)*sp);
+      e.userData.fx = (c-(colCount-1)/2)*sp; e.userData.fz = (r+1)*sp;
       e.userData.sid = sq.id;
       sq.units.push(e);
     }
   }
-  for (let s=-1;s<=1;s+=2) {
-    for (let i=0;i<2;i++) {
-      const e = spawnEnemy('fast');
-      e.position.set(sx+s*(sp*3+i*3), 0, sz+i*sp+sp);
-      e.userData.fx = s*(sp*3+i*3); e.userData.fz = i*sp+sp;
-      e.userData.sid = sq.id;
-      sq.units.push(e);
+  // Fast only from wave 3+
+  if (S.waveNum >= 3) {
+    for (let s=-1;s<=1;s+=2) {
+      for (let i=0;i<2;i++) {
+        const e = spawnEnemy('fast');
+        e.position.set(sx+s*(sp*3+i*3), 0, sz+i*sp+sp);
+        e.userData.fx = s*(sp*3+i*3); e.userData.fz = i*sp+sp;
+        e.userData.sid = sq.id;
+        sq.units.push(e);
+      }
     }
   }
   squads.push(sq);
@@ -546,24 +555,28 @@ function createSquad() {
 
 function launchWave() {
   const now = Date.now();
-  if (now - S.lastWave < 20000 && S.waveNum > 0) return;
+  const cooldown = S.waveNum < 3 ? 35000 : S.waveNum < 5 ? 25000 : 20000;
+  if (now - S.lastWave < cooldown && S.waveNum > 0) return;
   S.lastWave = now;
   S.waveNum++;
   msg('第 '+S.waveNum+' 波来袭!', '#f00');
-  // 5 squads per wave, each staggered by 600ms
-  for (let i=0;i<5;i++) setTimeout(() => {
+
+  // Squads per wave: 2→3→4→5 (starts small)
+  const squadCount = S.waveNum <= 1 ? 2 : S.waveNum <= 3 ? 3 : S.waveNum <= 5 ? 4 : 5;
+
+  for (let i=0;i<squadCount;i++) setTimeout(() => {
     const sq = createSquad();
-    // Scaling: +35% HP, +18% dmg, +8% size per wave
-    const hs = 1 + (S.waveNum-1)*0.35;
-    const as = 1 + (S.waveNum-1)*0.18;
-    const ss = 1 + (S.waveNum-1)*0.08;
+    // Scaling: starts at 1x, increases slowly per wave
+    const hs = 1 + (S.waveNum-1)*0.15;   // HP: +15% per wave (was 35%)
+    const as = 1 + (S.waveNum-1)*0.08;   // ATK: +8% per wave (was 18%)
+    const ss = 1 + (S.waveNum-1)*0.04;   // Size: +4% per wave (was 8%)
     sq.units.forEach(u => {
       u.userData.hp = Math.floor(u.userData.hp*hs); u.userData.maxHp = u.userData.hp;
       u.userData.dmg = Math.floor(u.userData.dmg*as);
       if (u.userData.type === 'boss') u.scale.setScalar(ss*2);
       else u.scale.setScalar(ss);
     });
-  }, i*600);
+  }, i*800);
 }
 
 // ---- Game Loop ----
@@ -939,7 +952,7 @@ function buildHive() {
     p.castShadow = true;
     g.add(p);
   }
-  g.position.set(0, 0, -180);
+  g.position.set(0, 0, -100);
   scene.add(g);
   return g;
 }
