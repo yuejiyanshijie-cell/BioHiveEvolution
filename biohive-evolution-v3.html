@@ -566,10 +566,11 @@ function launchWave() {
 
   for (let i=0;i<squadCount;i++) setTimeout(() => {
     const sq = createSquad();
-    // Scaling: starts at 1x, increases slowly per wave
-    const hs = 1 + (S.waveNum-1)*0.15;   // HP: +15% per wave (was 35%)
-    const as = 1 + (S.waveNum-1)*0.08;   // ATK: +8% per wave (was 18%)
-    const ss = 1 + (S.waveNum-1)*0.04;   // Size: +4% per wave (was 8%)
+    // Scaling: gentle early, aggressive late
+    const mult = S.waveNum <= 5 ? S.waveNum - 1 : (S.waveNum - 5) * 2 + 4;
+    const hs = 1 + mult * 0.15;    // after wave 5: 2x faster
+    const as = 1 + mult * 0.08;
+    const ss = 1 + mult * 0.04;
     sq.units.forEach(u => {
       u.userData.hp = Math.floor(u.userData.hp*hs); u.userData.maxHp = u.userData.hp;
       u.userData.dmg = Math.floor(u.userData.dmg*as);
@@ -744,21 +745,10 @@ function loop(time) {
           } else {
             tgt.userData.hp -= u.userData.dmg;
             if (tgt.userData.hp <= 0) { scene.remove(tgt); S.units.splice(S.units.indexOf(tgt),1); }
+          }
         }
-      } else if (u.userData.hp > 0) {
-        // No enemy nearby - attack hive if close
-        const dh = u.position.distanceTo(hive.position);
-        if (dh < 8 && time-(u.userData.lastAttack||0)>600) {
-          u.userData.lastAttack=time;
-          S.hiveHP -= u.userData.dmg;
-          if (S.hiveHP <= 0) { S.hiveHP=0; S.won=true; gameWin(); }
-        } else if (dh < 30) {
-          const dirh = new THREE.Vector3().subVectors(hive.position, u.position).normalize();
-          u.position.x+=dirh.x*s; u.position.z+=dirh.z*s;
-        }
+        u.position.y = 0;
       }
-      }
-      u.position.y = 0;
     });
   });
   squads = squads.filter(s => s.units.some(u => u.userData.hp > 0));
@@ -785,6 +775,17 @@ function loop(time) {
           u.userData.lastAttack=time;
           n.userData.hp-=u.userData.dmg;
           if (n.userData.hp<=0) { S.biomass+=30; S.ate++; u.userData.kills++; if(u.userData.kills%5===0)msg(u.userData.type+' 击杀: '+u.userData.kills+'! 可进化', '#ffd700'); scene.remove(n); S.enemies.splice(S.enemies.indexOf(n),1); }
+        }
+      } else {
+        // No enemies nearby — attack hive
+        const dh = u.position.distanceTo(hive.position);
+        if (dh < 8 && time-(u.userData.lastAttack||0)>500) {
+          u.userData.lastAttack=time;
+          S.hiveHP -= u.userData.dmg;
+          if (S.hiveHP <= 0) { S.hiveHP=0; S.won=true; gameWin(); }
+        } else if (dh < 40) {
+          const dirh = new THREE.Vector3().subVectors(hive.position, u.position).normalize();
+          u.position.x+=dirh.x*s; u.position.z+=dirh.z*s;
         }
       }
     }
