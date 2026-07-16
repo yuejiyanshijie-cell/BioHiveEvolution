@@ -52,7 +52,7 @@ canvas{display:block;width:100vw;height:100vh}
     <div class="r" style="color:#f44;">👹 母巢: <span id="hive" style="color:#f44;">5000/5000</span></div>
     <div id="place-panel">
       <div class="t">⚔ 点按钮选兵种，再点地图放置</div>
-      <button id="s0" class="sel" onclick="pick(0)">⛏️ 采集车 (5)</button>
+      <button id="s0" class="sel" onclick="pick(0)">🟢 工蜂 (5)</button>
       <button id="s1" onclick="pick(1)">🔫 步兵 (20)</button>
       <button id="s2" onclick="pick(2)">🚀 火箭兵 (40)</button>
       <button id="s3" onclick="pick(3)">🎯 狙击手 (80)</button>
@@ -112,8 +112,7 @@ const S = {
   hiveMaxHP: 5000,
   hivePhase: 0,
   hiveLastHP: 5000,
-  won: false,
-  ores: []
+  won: false
 };
 
 // ---- Three.js ----
@@ -287,22 +286,6 @@ function buildCrystal() {
   return g;
 }
 
-// ---- Consumables ----
-const consumables = [];
-function spawnFood() {
-  const t = Math.random() < .5 ? 'small' : Math.random() < .8 ? 'normal' : 'large';
-  let g,m,b;
-  if (t==='small') { g=new THREE.SphereGeometry(.5,6,4); m=new THREE.MeshStandardMaterial({color:0x0f0,emissive:0x030}); b=5; }
-  else if (t==='large') { g=new THREE.BoxGeometry(2,2,2); m=new THREE.MeshStandardMaterial({color:0xf00,emissive:0x300}); b=25; }
-  else { g=new THREE.SphereGeometry(1,8,6); m=new THREE.MeshStandardMaterial({color:0xff0,emissive:0x330}); b=10; }
-  const mesh = new THREE.Mesh(g,m);
-  mesh.position.set((Math.random()-.5)*460,1,(Math.random()-.5)*460);
-  mesh.castShadow=true;
-  mesh.userData={biomass:b};
-  scene.add(mesh);
-  consumables.push(mesh);
-}
-
 // ---- Enemies ----
 function spawnEnemy(type) {
   const g = new THREE.Group();
@@ -326,9 +309,9 @@ function spawnEnemy(type) {
   return g;
 }
 
-// ---- Units (Red Alert style) ----
+// ---- Units ----
 const U = [
-  {n:'采集车',hp:300,dmg:0,spd:.14,cost:5,color:0xffaa00,size:.5,tp:'harv'},
+  {n:'工蜂',hp:200,dmg:4,spd:.13,cost:5,color:0x00ff88,size:.4,tp:'drone'},
   {n:'步兵',hp:400,dmg:14,spd:.09,cost:20,color:0x00cc00,size:.65,tp:'inf'},
   {n:'火箭兵',hp:280,dmg:32,spd:.07,cost:40,color:0xff2222,size:.8,tp:'rocket'},
   {n:'狙击手',hp:150,dmg:60,spd:.08,cost:80,color:0xcc44ff,size:.6,tp:'sniper'}
@@ -339,15 +322,15 @@ function spawnUnit(type, x, z) {
   if(S.biomass<d.cost){msg('资金不足');return;}
   S.biomass-=d.cost;
   const g=new THREE.Group();
-  // Distinct shapes per type
-  if(type===0){// Harvester - tank shape
-    const b=new THREE.Mesh(new THREE.BoxGeometry(.7,.4,1),new THREE.MeshStandardMaterial({color:d.color}));b.position.y=.35;b.castShadow=true;g.add(b);
-    const c=new THREE.Mesh(new THREE.CylinderGeometry(.15,.15,.25,6),new THREE.MeshStandardMaterial({color:0xaaaa00}));c.position.y=.6;g.add(c);
+  if(type===0){// Drone - small flying hexagon
+    const b=new THREE.Mesh(new THREE.OctahedronGeometry(.35,0),new THREE.MeshStandardMaterial({color:d.color}));b.position.y=.4;b.castShadow=true;g.add(b);
+    const w1=new THREE.Mesh(new THREE.BoxGeometry(.08,.02,.25),new THREE.MeshStandardMaterial({color:0x00aa66}));w1.position.set(.25,.4,0);w1.rotation.z=.3;g.add(w1);
+    const w2=new THREE.Mesh(new THREE.BoxGeometry(.08,.02,.25),new THREE.MeshStandardMaterial({color:0x00aa66}));w2.position.set(-.25,.4,0);w2.rotation.z=-.3;g.add(w2);
   }else if(type===1){// Infantry
     const b=new THREE.Mesh(new THREE.CylinderGeometry(.3,.35,1.2,8),new THREE.MeshStandardMaterial({color:d.color}));b.position.y=.6;b.castShadow=true;g.add(b);
     const h=new THREE.Mesh(new THREE.SphereGeometry(.28,6,4),new THREE.MeshStandardMaterial({color:0xe8c4a0}));h.position.y=1.35;g.add(h);
     const gun=new THREE.Mesh(new THREE.CylinderGeometry(.04,.04,.5,6),new THREE.MeshStandardMaterial({color:0x333}));gun.position.set(.35,.9,0);gun.rotation.z=-Math.PI/4;g.add(gun);
-  }else if(type===2){// Rocket soldier
+  }else if(type===2){// Rocket
     const b=new THREE.Mesh(new THREE.CylinderGeometry(.35,.45,1.3,8),new THREE.MeshStandardMaterial({color:d.color}));b.position.y=.65;b.castShadow=true;g.add(b);
     const h=new THREE.Mesh(new THREE.SphereGeometry(.32,6,4),new THREE.MeshStandardMaterial({color:0xe8c4a0}));h.position.y=1.45;g.add(h);
     const rl=new THREE.Mesh(new THREE.CylinderGeometry(.06,.1,.7,6),new THREE.MeshStandardMaterial({color:0x444}));rl.position.set(.5,1,.3);rl.rotation.z=-Math.PI/3;g.add(rl);
@@ -383,7 +366,7 @@ function updateUI() {
 function pick(type) {
   S.placeType = type;
   for(let i=0;i<4;i++){const b=document.getElementById('s'+i);if(b)b.className=i===type?'sel':'';}
-  const colors = [0xffaa00,0x00cc00,0xff2222,0xcc44ff];
+  const colors = [0x00ff88,0x00cc00,0xff2222,0xcc44ff];
   if(cursorMesh)cursorMesh.material.color.set(colors[type]);
   msg('选中: '+U[type].n+' | 点击放置 | Shift框选','#ffd700');
 }
@@ -676,7 +659,18 @@ function loop(time) {
   });
   squads = squads.filter(s => s.units.some(u => u.userData.hp > 0));
 
-function harvesterAI(u,s,dt){if(u.userData.hasOre){const dc=u.position.distanceTo(crystal.position);if(dc<5){u.userData.hasOre=false;S.biomass+=12}else{const dv=new THREE.Vector3().subVectors(crystal.position,u.position).normalize();u.position.x+=dv.x*s;u.position.z+=dv.z*s}}else{let ne=null,nd=Infinity;S.ores.forEach(o=>{const d=u.position.distanceTo(o.position);if(d<nd){nd=d;ne=o}});if(ne){const dv=new THREE.Vector3().subVectors(ne.position,u.position).normalize();u.position.x+=dv.x*s;u.position.z+=dv.z*s;if(nd<3){u.userData.miningTimer=(u.userData.miningTimer||0)+dt;if(u.userData.miningTimer>2){u.userData.miningTimer=0;u.userData.hasOre=true;ne.userData.amount-=15;if(ne.userData.amount<=0){ne.position.set((Math.random()-.5)*420,0,(Math.random()-.5)*420);ne.userData.amount=200+Math.random()*300}}}}}}
+function harvesterAI(u,s,dt){
+  if(u.userData.hasOre){
+    const dc=u.position.distanceTo(crystal.position);
+    if(dc<5){u.userData.hasOre=false;S.biomass+=u.userData._cargo||8;u.userData._cargo=0}
+    else{const dv=new THREE.Vector3().subVectors(crystal.position,u.position).normalize();u.position.x+=dv.x*s;u.position.z+=dv.z*s}
+  }else{
+    let ne=null,nd=Infinity;
+    RESOURCES.forEach(r=>{if(!r.userData.collected){const d=u.position.distanceTo(r.position);if(d<nd){nd=d;ne=r}}});
+    if(ne){const dv=new THREE.Vector3().subVectors(ne.position,u.position).normalize();u.position.x+=dv.x*s;u.position.z+=dv.z*s;
+      if(nd<2){u.userData.miningTimer=(u.userData.miningTimer||0)+dt;if(u.userData.miningTimer>1.5){u.userData.miningTimer=0;u.userData.hasOre=true;u.userData._cargo=ne.userData.give;ne.userData.collected=true;ne.visible=false;setTimeout(()=>{const t=Math.floor(Math.random()*4);ne.position.set((Math.random()-.5)*460,0,(Math.random()-.5)*460);ne.userData.resType=t;ne.userData.give=RES_TYPES[t].give;ne.userData.collected=false;ne.visible=true;const m=ne.children[0];if(m&&m.material)m.material.color.set(RES_TYPES[t].clr);ne.children[0].scale.setScalar(RES_TYPES[t].sz/0.3)},3000+Math.random()*3000)}}}
+  }
+}
 function combatAI(u,s,now){const isRanged=u.userData.type===2||u.userData.type===3,range=isRanged?(u.userData.type===3?28:20):4;let n=null,nd=50;S.enemies.forEach(e=>{const d=u.position.distanceTo(e.position);if(d<nd&&e.userData.hp>0){nd=d;n=e}});if(n){const dir=new THREE.Vector3().subVectors(n.position,u.position).normalize();if(nd>range+2){u.position.x+=dir.x*s;u.position.z+=dir.z*s}if(nd<range&&Date.now()-(u.userData.lastAttack||0)>800){u.userData.lastAttack=Date.now();if(isRanged)fireProjectile(u,dir,n,false);else{n.userData.hp-=u.userData.dmg;if(n.userData.hp<=0){S.biomass+=30;S.ate++;u.userData.kills++;scene.remove(n);S.enemies.splice(S.enemies.indexOf(n),1)}}}}else{const dh=u.position.distanceTo(hive.position);if(dh<(isRanged?15:8)&&Date.now()-(u.userData.lastAttack||0)>500){u.userData.lastAttack=Date.now();if(isRanged)fireProjectile(u,new THREE.Vector3().subVectors(hive.position,u.position).normalize(),hive,true);else{S.hiveHP-=u.userData.dmg;if(S.hiveHP<=0){S.hiveHP=0;S.won=true;gameWin()}}}else if(dh<40&&!isRanged){const dhv=new THREE.Vector3().subVectors(hive.position,u.position).normalize();u.position.x+=dhv.x*s;u.position.z+=dhv.z*s}}}
 function fireProjectile(u,dir,tgt,isHive){const p=new THREE.Mesh(new THREE.SphereGeometry(.12,4,4),new THREE.MeshBasicMaterial({color:isHive?0xff0000:u.userData.type===3?0xcc44ff:0xff2222}));p.position.set(u.position.x,1,u.position.z);p.userData={dmg:u.userData.dmg,owner:u,target:tgt,isHive:isHive,vx:dir.x*(isHive?12:16),vz:dir.z*(isHive?12:16),life:2};scene.add(p);if(!S.projectiles)S.projectiles=[];S.projectiles.push(p)}
 
@@ -801,21 +795,25 @@ function buildHive() {
 }
 hive = buildHive();
 
-// Ore fields (gold crystals on ground)
-for(let i=0;i<16;i++){
+// ---- Resources (4 types, 20 each) ----
+const RESOURCES = [];
+const RES_TYPES = [
+  {n:'金矿',clr:0xffcc00,give:12,sz:.3,geo:()=>new THREE.OctahedronGeometry(.35,0)},
+  {n:'食物',clr:0x44ff44,give:6,sz:.25,geo:()=>new THREE.SphereGeometry(.3,6,4)},
+  {n:'水晶',clr:0x44aaff,give:20,sz:.4,geo:()=>new THREE.OctahedronGeometry(.4,1)},
+  {n:'稀有矿',clr:0xcc44ff,give:35,sz:.5,geo:()=>new THREE.ConeGeometry(.35,.6,6,1)}
+];
+for(let i=0;i<80;i++){
+  const t=Math.floor(Math.random()*4),d=RES_TYPES[t];
   const g=new THREE.Group();
-  const x=(Math.random()-.5)*420,z=(Math.random()-.5)*420;
+  const m=new THREE.Mesh(d.geo(),new THREE.MeshStandardMaterial({color:d.clr,emissive:d.clr,emissiveIntensity:.25,roughness:.3}));
+  m.position.y=d.sz+.1;m.castShadow=true;g.add(m);
   // Ground disc
-  const disc=new THREE.Mesh(new THREE.CylinderGeometry(2,.1,.05,16),new THREE.MeshStandardMaterial({color:0x332200,roughness:.8}));
+  const disc=new THREE.Mesh(new THREE.CylinderGeometry(d.sz+.15,.05,.03,12),new THREE.MeshStandardMaterial({color:0x222222,roughness:.9}));
   disc.position.y=.02;g.add(disc);
-  // Glowing crystals
-  for(let j=0;j<5;j++){
-    const h=.4+.7*Math.random(),sz=.12+.08*j;
-    const o=new THREE.Mesh(new THREE.ConeGeometry(sz,h,6,1),new THREE.MeshStandardMaterial({color:0xffcc00,emissive:0x332200,emissiveIntensity:.4,roughness:.2,metalness:.7}));
-    o.position.set((j-2)*.7,.05+h/2,Math.sin(j)*.5);o.castShadow=true;g.add(o);
-  }
-  g.position.set(x,0,z);g.userData={amount:200+Math.random()*300};
-  scene.add(g);S.ores.push(g);
+  g.position.set((Math.random()-.5)*460,0,(Math.random()-.5)*460);
+  g.userData={resType:t,give:d.give,collected:false};
+  scene.add(g);RESOURCES.push(g);
 }
 
 // Cursor ring
