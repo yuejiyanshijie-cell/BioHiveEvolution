@@ -53,6 +53,7 @@ canvas{display:block;width:100vw;height:100vh}
       <button id="bt-drone" class="sel" onclick="pick('drone')">🟢 工蜂 (10)</button>
       <button id="bt-warrior" onclick="pick('warrior')">🗡️ 战士 (25)</button>
       <button id="bt-hydralisk" onclick="pick('hydralisk')">🏹 远程 (50)</button>
+      <button id="bt-sniper" onclick="pick('sniper')">🔫 狙击 (100)</button>
     </div>
   </div>
 </div>
@@ -324,6 +325,11 @@ const EVO = {
     {name:'远程', hp:320, dmg:22, spd:.08, cost:50, color:0x00ff00, size:.8, req:0},
     {name:'长枪', hp:520, dmg:35, spd:.09, cost:70, color:0x44ff44, size:1.0, req:5, skill:'毒液弹'},
     {name:'毁灭者', hp:850, dmg:55, spd:.10, cost:110, color:0xaaff44, size:1.3, req:15, skill:'灭世射线'}
+  ],
+  sniper: [
+    {name:'远程兵', hp:150, dmg:32, spd:.07, cost:100, color:0xff4400, size:.7, req:0},
+    {name:'狙击手', hp:250, dmg:50, spd:.08, cost:130, color:0xff6622, size:.9, req:7, skill:'穿甲弹'},
+    {name:'歼灭者', hp:400, dmg:80, spd:.09, cost:180, color:0xff8844, size:1.2, req:20, skill:'毁灭狙击'}
   ]
 };
 
@@ -437,11 +443,11 @@ function updateUI() {
 // ---- Place Unit ----
 function pick(type) {
   S.placeType = type;
-  ['drone','warrior','hydralisk'].forEach(t => {
+  ['drone','warrior','hydralisk','sniper'].forEach(t => {
     const b = document.getElementById('bt-'+t);
     if (b) { b.className = t===type ? 'sel' : ''; }
   });
-  const colors = {drone:0x00ff88, warrior:0x00cc00, hydralisk:0x00ff00};
+  const colors = {drone:0x00ff88, warrior:0x00cc00, hydralisk:0x00ff00, sniper:0xff4400};
   if (cursorMesh) cursorMesh.material.color.set(colors[type]);
   msg('选中: '+type+' | 点击地图放置 | Shift框选批量');
 }
